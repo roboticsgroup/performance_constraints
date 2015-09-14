@@ -1,2 +1,24 @@
-Run performance_constraints.m in Matlab
-Requires Robotic Toolbox
+"Manipulator Performance Constraints on Cartesian Admittance Control for
+human-robot Cooperation"
+
+Description:
+Using manipulability index to constrain the robot above a certain
+threshold.
+
+Usage:
+1. Set the desired parameters for the robot and the performance
+constraints
+2. Run the simulation
+3. View the simulated motion of the robot and the plots
+
+Requirements:
+- Robotics Toolbox for Matlab (http://www.petercorke.com/Robotics_Toolbox.html)
+
+Notes: 
+- The simulation does not consider the joint limits so the robot
+might behave weird
+- This code has been tested with Robotics Toolbox 9.10 and Matlab R2014a
+
+Authors: Fotios Dimeas, Charalambos Papakonstantinou
+
+Copyright 2015 Fotios Dimeas
