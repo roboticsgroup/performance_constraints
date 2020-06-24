@@ -7,7 +7,7 @@ A description and the overall algorithm of the method is in:
 Robotics and Computer-Integrated Manufacturing (2017).
 
 Author: Fotis Dimeas
-Copyright 2017 Fotios Dimeas
+Copyright 2020 Fotios Dimeas
  */
 
 #include <cstdlib>
@@ -24,18 +24,24 @@ int main(int argc, char** argv) {
 
 	/*Initialize performance constraints
 	* Arguments:
-	* 1: w_cr for translation
-	* 2: w_th for translation
-	* 3: w_cr for rotation
-	* 4: w_th for rotation
-	* 5: lambda for translation
-	* 6: lambda for rotation
+	* 1: w_cr for translation or combined
+	* 2: w_th for translation or combined
+	* 3: w_cr for rotation [OPTIONAL: Leave empty for combined indices]
+	* 4: w_th for rotation [OPTIONAL: Leave empty for combined indices]
+	* 5: lambda for translation or combined
+	* 6: lambda for rotation  [OPTIONAL: Leave empty for combined indices]
 	* 7: Performance indices [1, 2, 3]  1: Manipulability Index, 2: Minimum Singular Value, 3: Inverse Condition Number
-	* 8  Calculation methods: [_serial, _parallel, _parallel_nonblock]
+	* 8: Calculation methods: [_serial, _parallel, _parallel_nonblock]
 	*/
-	// PC pConstraints(	0.011,	0.03,	0.15,	0.5,	1.0,	1.0,	1,		_serial); //Using manipulability index
-	PC pConstraints(	0.03,	0.14,	0.1,	0.5,	1.0,	1.0,	2,		_parallel); //Using MSV (better for human robot interaction)
+
+	/// Separate indices for translation or rotation
+	// PC pConstraints(	0.011,	0.03,	0.15,	0.5,	1.0,	1.0,	1,	_serial); //Using manipulability index
+	// PC pConstraints(	0.03,	0.14,	0.1,	0.5,	1.0,	1.0,	2,	_parallel); //Using MSV (better for human robot interaction)
 	
+	/// Combined indices
+	PC pConstraints(	0.1,	0.3,	1.0,	1,	_parallel); //Using MSV (better for human robot interaction)
+
+
 	pConstraints.setVerbose(1); //Set debug info. Comment or set to 0 to disable
 
 	arma::vec q; q << 0. << -M_PI/4. << 0. << M_PI/2. << 0. << -M_PI/4. << 0.0; //An example initial configuration 
@@ -48,8 +54,11 @@ int main(int argc, char** argv) {
 	int i;
 	for (i=0; i<100; i++) //this is supposed to be a simulation control loop
 	{
+		// std::cout << "1\n";
 		pConstraints.updateCurrentConfiguration(q); //measure the robot's configuration and put it here
+		// std::cout << "2\n";
 		pConstraints.get_Jsym(q, J); //calculate J from current q
+		// std::cout << "3\n";
 		pConstraints.updateCurrentJacobian(J); 
 		pConstraints.updatePC(); //Performance constraints are calculated in here
 

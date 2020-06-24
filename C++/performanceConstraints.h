@@ -7,7 +7,7 @@ A description and the overall algorithm of the method is in:
 Robotics and Computer-Integrated Manufacturing (2017).
 
 Author: Fotis Dimeas
-Copyright 2017 Fotios Dimeas
+Copyright 2020 Fotios Dimeas
  */
 
 #define ARMA_DONT_USE_CXX11 //remove warning for incomplete C++11 support
@@ -30,8 +30,10 @@ enum PCcalculation {
 class PC
 {
 public:
-	PC(double _crit_t, double _thres_t, double _crit_r, double _thres_r, double _lambda_t, double _lambda_r, int _option, PCcalculation _method);
+	PC(double _crit_t, double _thres_t, double _crit_r, double _thres_r, double _lambda_t, double _lambda_r, int _index, PCcalculation _method);
+	PC(double _crit_t, double _thres_t, double _lambda_t, int _index, PCcalculation _method);
 	~PC();
+	void init();
 	void updatePC(); //
 	void calcSingularityTreatmentForce(); //calculate the spring forces due to Singularity Treatment (call this from SingularityTreatment() )
 	double getSingularityTreatmentForce(int index){ return Favoid.at(index); } //return elements of the force/torque
@@ -67,13 +69,13 @@ private:
 	double K_rot; //Singularity treatment spring (for rotations)
 	arma::vec::fixed<2> ST_current; //Singularity treatment current value (e.g. manipulability index)
 	arma::vec::fixed<6> Favoid, dp, dQ6;
-	arma::vec::fixed<2> dx, grad_w;
-	arma::vec::fixed<7> Qv, Qinit, dQ7, Q_measured	; 
+	double dx, grad_w;
+	arma::vec::fixed<7> Qv, Qinit, dQ7, Q_measured; 
 	std::thread pconstraints[6];
 	int updateConstraints[6], stop_pConstraints_pool;
 	double crit_t, thres_t, crit_r, thres_r, lambda_t, lambda_r;
-	int PC_option; //performance constraints option
-	PCcalculation PC_method; //serial or parallel calculation
+	int PC_index; //performance constraints option
+	PCcalculation PC_Calc_Method; //serial or parallel calculation
 
 	arma::mat::fixed<6,7> J; //This is the tool Jacobian matrix, usually provided by the robot controller
 	arma::mat::fixed<6,7> J_sym; //The Jacobian matrix should be available in symbolic function. The KUKA LWR 4+ is provided here as an example.
@@ -85,4 +87,5 @@ private:
 	
 	int verbose;
 	arma::wall_clock timer;
+	bool separate;
 };
