@@ -32,27 +32,38 @@ r = lwr();	%create robot object using Robotics Toolbox
 q0=[0 0.3491 0 -1.3963 0 1.3963 0];	%set to an initial configuration
 Ts=0.01; %Set simulation step (in seconds)
 joint_velocity_limit = 2; %rad/s (from the specs of LWR)
-Md = diag([2*ones(1,3)]');  Cd = diag([50*ones(1,3)]');  %Cartesian admittance parameters
+Md = diag([2*ones(1,3) 0.1*ones(1,3)]');  
+Cd = diag([20*ones(1,3) 0.5*ones(1,3)]');  %Cartesian admittance parameters
 
 %External force to be applied thoughout the simulation in XYZ directions (simulating human force)
-F_h =[0 10 0]'; 
+F_h =[0 10 0 0 0 0]'; 
 %F_h =[5 5 5]';  %alternative scenario
 % F_h =[5 0 0]';  %alternative scenario
 % F_h =[0 0 -5]';  %alternative scenario
 
 %%%Performance constraints parameters%%%
-enable_constraints = 1; %0: constraints are disabled, 1: constraints are enabled
-sim_time = 4; %Simulation time in seconds
-w_crit=0.01;
-w_th=0.025;
-lambda = 100;
-
+separate_TR = 1; %0: use translational index for both, 1: use seperate indices
+option = 2;      %0: no limits, 1: maniplty, 2: MSV, 3: inv. Condition Number
+if (option<=1)      %maniplty
+    w_crit = [0.01  0.2];
+    w_th   = [0.025 0.5];
+    lambda = [1   1];
+elseif (option==2)  %MSV
+    w_crit = [0.02  0.1];
+    w_th   = [0.2   0.4];
+    lambda = [1   1];
+elseif (option==3)  %inv. Condition Number
+    w_crit = [0.05  0.05];
+    w_th   = [0.4  0.4];
+    lambda = [1   1];
+end
 
 %initialisation of other parameters
+sim_time = 4; %Simulation time in seconds
 time = 0:Ts:sim_time;
 q = q0';
-A=zeros(3,1);
-x_dotprev=zeros(3,1);
+A=zeros(6,1);
+x_dotprev=zeros(6,1);
 Q = []; W=[]; F_v=[]; P=[];
 figure(1); subplot(3,2,[1 3 5]); 
 r.plot(q0,'delay',Ts,'floorlevel',-0.4,'perspective')  %Create figure to simulate the robot motion in real time
@@ -60,34 +71,75 @@ r.plot(q0,'delay',Ts,'floorlevel',-0.4,'perspective')  %Create figure to simulat
 
 clc; disp('Calculating the simulation...')
 for i=1:length(time)
-    J = r.jacobn(q);
-    JT = J(1:3,:); 
-    JR = J(4:6,:);
-    JT_aug = JT*(eye(length(q0),length(q0))-pinv(JR)*JR); %Eq. 13
-    W = [W sqrt(det( JT_aug*JT_aug' ))]; %Translational manipulability in the strong sense
+    J       = r.jacob0(q); JT = J(1:3,:); JR = J(4:6,:);
+    JT_aug  = JT*(eye(length(q0),length(q0))-pinv(JR)*JR); %Eq. 13
+    JR_aug  = JR*(eye(length(q0),length(q0))-pinv(JT)*JT);
+    
+    Wall(i)     = sqrt(det(J*J'));
+    Wt(i)       = sqrt(det(JT*JT')); %Translational manipulability in the weak sense
+    Wr(i)       = sqrt(det(JR*JR'));
+    Wt_aug(i)   = sqrt(det( JT_aug*JT' )); %TTM in the strong sense
+    Wr_aug(i)   = sqrt(det( JR_aug*JR' ));
+    [U,sigma,V] = svd(J);      S(:,i) = (diag(sigma));
+        detUV(:,i)= [det(U); det(V) ];
+    [U,sig_t,V] = svd(JT_aug); St(i)  = min(svd(JT)); %MSV translational J only
+        detUVt(:,i) = [det(U); det(V) ]; 
+    [U,sig_r,V] = svd(JR_aug); Sr(i)  = min(svd(JR)); %MSV rotational J only
+        detUVr(:,i) = [det(U); det(V) ]; 
+    St_aug(i)   = min(diag(sig_t)); %MSV augmented translational J
+    Sr_aug(i)   = min(diag(sig_r)); %MSV augmented rot J
+    CN(i)       = min(diag(sigma))/(max(diag(sigma)));
+    CNt(i)      = min(diag(sig_t))/max(diag(sig_t));
+    CNr(i)      = min(diag(sig_r))/max(diag(sig_r));
+    
 
-    % Eq.(2) asymptotic increase
-    if ( W(:,i) > w_th )
-       k=0;
-    else
-       k=lambda*(1/(W(i)-w_crit)-1/(w_th-w_crit));
-       for dir=1:3 %for each of the translational directions
-             A(dir)= grad_w(q,r,dir,JT_aug);  
-       end 
+    %Select criterion
+    switch(option)
+        case {0, 1} %manipulability
+            if (separate_TR);	W(:,i)= [Wt_aug(i) Wr_aug(i)]';
+            else                W(i)  = Wt_aug(i);        end
+        case 2  %MSV
+            if (separate_TR);	W(:,i)= [St_aug(i) Sr_aug(i)]';
+            else                W(i)  = min(S(:,i));        end
+        case 3  %Condition number
+            if (separate_TR);	W(:,i)= [CNt(i) CNr(i)]';
+            else                W(i)  = CN(i);        end
     end
 
-    if (enable_constraints)
-        F_v(:,i) = k*A; %Eq.(1)
+    %for translation (or both when separate_TR=0)
+    if ( W(1,i) > w_th(1) )
+       k(1,i)=0;
     else
-        F_v(:,i) = zeros(3,1);
+       k(1,i)=lambda(1)*(1/(W(1,i)-w_crit(1))-1/(w_th(1)-w_crit(1)));
+    end
+        
+    if (separate_TR) %calculate additional rotations
+        if ( W(2,i) > w_th(2) )
+           k(2,i)=0;
+        else
+           k(2,i)=lambda(2)*(1/(W(2,i)-w_crit(2))-1/(w_th(2)-w_crit(2)));
+        end
+    end
+    
+    A = -grad_w(q,r,J,option,separate_TR);
+
+    if (separate_TR)
+        F_v(1:3,i) = k(1,i)*A(1:3); %Eq.(1)
+        F_v(4:6,i) = k(2,i)*A(4:6); %Eq.(1)
+    else
+        F_v(:,i) = k(i)*A; %Eq.(1)
+    end
+
+    if (option==0)
+        F_v(:,i) = zeros(6,1);
     end
 
     %Cartesian admittance
-    x_dot=inv( Md/Ts + Cd)*(Md*x_dotprev/Ts + F_h + F_v(:,i) ) ;
+    x_dot(:,i)= (Md/Ts + Cd) \ (Md*x_dotprev/Ts + F_h - F_v(:,i) ) ;
+    Jinv = pinv(J);
+  
+    q_dot = Jinv*(x_dot(:,i)); %differential inverse kinematics 
 
-    %differential inverse kinematics
-    q_dot = pinv(JT_aug)*x_dot;
-    
     %check the velocity limits
     if (max(abs(q_dot)) > joint_velocity_limit)
         disp('Joint velocity limits exceeded! Simulation stopped!')
@@ -100,8 +152,13 @@ for i=1:length(time)
     hom = r.fkine(q);
     P(:,i) = [hom(1,4) hom(2,4) hom(3,4)]';
     Q(:,i)=q; %save joint positions
-    x_dotprev=x_dot; %save for next iteration
+    x_dotprev=x_dot(:,i); %save for next iteration
     Q_dot(:,i)=q_dot;  %save joint reference velocities
+    
+    %show the progress
+    if (mod(i,0.05/Ts) ==0) 
+       clc; disp([num2str(round(100*i/length(time))) '%' ])
+    end
 end
 disp('Done!')
 
@@ -137,7 +194,7 @@ legend('x','y','z')
 subplot(3,2,[1 3 5])
 hold on
 % r.plot(q0) %reset to initial position
-scatter3(P(1,:),P(2,:),P(3,:),10,W)
+scatter3(P(1,:),P(2,:),P(3,:),10,W(1,:))
 colormap(Colormp/max(max(Colormp)))
 % colorbar('location','EastOutside'); %Sometimes this messes with the plot. Try at your own risk
-caxis([0,max(W)])
+caxis([0,max(W(1,:))])
