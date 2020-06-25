@@ -16,11 +16,16 @@ Copyright 2020 Fotios Dimeas
 // #define ARMA_DONT_USE_CXX11 //remove warning for incomplete C++11 support
 #include "armadillo" //Linear Algebra Library
 #include "performanceConstraints.h"
+#include <ros/ros.h>
+#include <ros/package.h>
 
 using namespace std;
 
 int main(int argc, char** argv) {
 	cout << "Armadillo version: " << arma::arma_version::as_string() << endl;
+
+	ros::init(argc, argv, "demo_node");
+	ros::NodeHandle nh_ = ros::NodeHandle("~");
 
 	/*Initialize performance constraints
 	* Arguments:

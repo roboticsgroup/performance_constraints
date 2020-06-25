@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package>
+  <name>performance_constraints</name>
+  <version>0.0.0</version>
+  <description>The performance_constraints package</description>
+
+  <maintainer email="dimeasf@ece.auth.gr">Fotis</maintainer>
+
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>cmake_modules</build_depend>
+  <build_depend>autharl_core</build_depend> <!-- Remove if you don't have this -->
+  <build_depend>roscpp</build_depend>
+
+  <run_depend>roscpp</run_depend>
+  <run_depend>autharl_core</run_depend> <!-- Remove if you don't have this -->
+  
+
+  <export></export>
+
+</package>
