@@ -32,12 +32,13 @@ PC::PC(	double _crit_t, double _thres_t,
 	PC_index 	= _index;
 	PC_Calc_Method	= _method;
 
-	separate 	= true;
+	gradient_type = _cartesian;
+	separate 	= true; //different thresholds have been provided for each
 
 	init();
 }
 
-/* Call the constructor before entering the control loop for combined indices.
+/* Call the constructor before entering the control loop for combined indices in position and orientation.
 * \param _method Available calculation methods: _serial, _parallel, _parallel_nonblock
 */
 PC::PC(	double _crit_t, double _thres_t, 
@@ -49,9 +50,36 @@ PC::PC(	double _crit_t, double _thres_t,
 	thres_t 	= _thres_t;
 	lambda_t 	= _lambda_t;
 	PC_index 	= _index;
-	PC_Calc_Method	= _method;
+	PC_Calc_Method	= _method;;
 
-	separate 	= false;
+	gradient_type = _cartesian;
+	separate 	= false; //only one set of thresholds has been provided for the combined index
+	
+	init();
+}
+
+/* Call this constructor to calculate only the Gradient.
+* \param _method Available calculation methods: _serial, _parallel, _parallel_nonblock
+*/
+PC::PC(	int _index, 
+		PCcalculation _method,
+		GradientWRT _gradient_type,
+		bool _separate) {
+
+	PC_index 	= _index;
+	PC_Calc_Method	= _method;
+	gradient_type = _gradient_type;
+
+	if (gradient_type == _joints) {
+		if (verbose) std::cout << "Warning! Using combined indices when the gradient is wrt. the joints." << std::endl;
+		separate = false; //when grad is wrt. joints, there is no point to separate
+	}
+	else if (gradient_type == _cartesian)
+		separate = _separate; 
+	else {
+		std::cout << "Error! Wrong gradient calculation type" << std::endl;
+		return;
+	}
 	
 	init();
 }
@@ -64,12 +92,23 @@ void PC::init() {
 	}
 
 	n=7; //by default use all 7 joints for differential inverse kinematics etc.
+	
 	K_w = 0.0;
 	K_rot = 0.0;
-	Aw.fill(1.0);
+	
+	if (gradient_type == _cartesian) {
+		Aw = arma::ones<arma::vec>(6);
+		updateConstraints =  arma::zeros<arma::vec>(6);
+	}
+	else { 
+		Aw = arma::ones<arma::vec>(n);
+		updateConstraints =  arma::zeros<arma::vec>(n);
+	}
+
+	dq = arma::ones<arma::vec>(n);
 	Favoid.fill(0.0);
+
 	dx = 1e-5; //infinitesimal movement
-	w_all_prev = 0.0;
 
 	if (PC_Calc_Method != _serial) {
 		threadpool_create(PC_index); //start thread pool
@@ -194,36 +233,26 @@ double PC::calciCN(const arma::mat J, const int T_R) {
 
 /*! \brief Calculate the Performance Constraints
 *
-* Call this function from the control loop.
+* Call this function from outside, simply by providing the current q.
+*/
+void PC::updatePC(const arma::vec q){
+	updateCurrentConfiguration(q); //measure the robot's configuration and put it here
+	
+	get_Jsym_spatial(q, J); //calculate J from current q
+
+	updatePC();
+
+}
+/*! \brief Calculate the Performance Constraints
+*
+* Call this function from outside, but fist need to updateCurrentConfiguration(q), get_Jsym_spatial(q, J) and updateCurrentJacobian(J)
 * If the current performance value drops below the threshold, the grad is calculated.
 */
 void PC::updatePC()
 {
 	if (verbose) timer.tic();
 	
-	if (PC_index==1)
-		calcCurrentManipulability(); 
-	else
-		calcCurrentSVD();  
-
-	//Select performance index
-	switch (PC_index){
-		case 1:			//Manipulability index
-			ST_current = w;
-			break;
-		case 2:			//Minimum singulr value
-			ST_current = msv;
-			break;
-		case 3:			//Condition number
-			ST_current = icn;
-			break;
-	}
-
-	//Select calculation method (Serial or parallel)
-	if (PC_Calc_Method == _serial)
-		findBestManip(PC_index); //serial calculation
-	else
-		findBestManip(); //parallel calculation
+	calculateGradient(); //The point of PC is to work with the _cartesian gradient 
 
 	//Calculate metrics
 	if (ST_current(0) < thres_t) { //translation	
@@ -252,6 +281,30 @@ void PC::updatePC()
 		std::cout << "Constraint forces: "; Favoid.t().raw_print();
 		std::cout << "Took: " << time << "sec" << std::endl;
 	}
+}
+
+void PC::calculateGradient() {
+	//Select performance index
+	switch (PC_index){
+		case 1:			//Manipulability index
+			calcCurrentManipulability(); 
+			ST_current = w;
+			break;
+		case 2:			//Minimum singulr value
+			calcCurrentSVD(); 
+			ST_current = msv;
+			break;
+		case 3:			//Condition number
+			calcCurrentSVD(); 
+			ST_current = icn;
+			break;
+	}
+
+	//Select calculation method (Serial or parallel)
+	if (PC_Calc_Method == _serial)
+		findBestManip(PC_index); //serial calculation
+	else
+		findBestManip(); //parallel calculation
 }
 
 /*! \brief Calculate the reaction force from the Performance constraints
@@ -284,15 +337,24 @@ void PC::calcSingularityTreatmentForce(){
 void PC::findBestManip(int option){
 	Qinit = Q_measured; //copy current measured joint values (q_0)
 	
-	for (int axis=0; axis<6; axis++){ //for each Cartesian direction
-		int T_R = (axis<3) ? 0 : 1; //0 if translational, 1 if rotational [If seperate=false, the value of T_R doesn't play any role]
+	for (int axis=0; axis<Aw.size(); axis++){ //for each direction (cartesian or joint)
+		int T_R;
+		if (gradient_type == _cartesian) {
+			T_R = (axis<3) ? 0 : 1; //0 if translational, 1 if rotational [If seperate=false, the value of T_R doesn't play any role]
+			dp.fill(0.0); 
+			dp.at(axis)=dx; //virtual Cart. velocity for local search
+			
+			Qv = arma::pinv(J)*dp + Qinit; //new virtual joint values
+		}
+		else if (gradient_type == _joints) {
+			T_R = 0;
+			dq.fill(0.0); 
+			dq.at(axis)=dx; //infinitesimal joint movement
+			
+			Qv = dq + Qinit; //new virtual joint values
+		}
 		
-		dp.fill(0.0); 
-		dp.at(axis)=dx; //virtual Cart. velocity for local search
-		
-		Qv = arma::pinv(J)*dp + Qinit; //new virtual joint values
-		
-		get_Jsym(Qv, J_sym); //calculate J for those new virtual joint values (This overwrites the J7_sym global variable)
+		get_Jsym_spatial(Qv, J_sym); //calculate J for those new virtual joint values (This overwrites the J7_sym global variable)
 		
 		switch (option){
 			case 1:			//Manipulability metric
@@ -307,31 +369,29 @@ void PC::findBestManip(int option){
 		}
 
 		Aw.at(axis) = grad_w / dx; 
-	}
+	}	
 }
 
-/*! \brief Calculate the gradient of the performance index wrt to the Cartesian frame. Parallel (non-blocking) implementation
+/*! \brief Calculate the gradient of the performance index wrt to the Cartesian frame. Parallel implementation
 *
-* Non-blocking means that in each loop the constraints from the previous iteration will be applied
+* _parallel is a blocking function
+* _parallel_nonblock means that in each loop, the last calculated constraints from the previous iteration will be applied [WARNING! Not Advised!]
 * The option selects between 1:manipulability, 2:minimum singular value, 3:Inv condition number
 */
 void PC::findBestManip(){
 	Qinit = Q_measured; //copy current measured joint values (q_0)
 	
-	for (int axis=0; axis<6; axis++) 
-		updateConstraints[axis] = 1; //send signal at the thread pool to update measurements
-	
+	// for (int axis=0; axis<6; axis++) 
+	// 	updateConstraints[axis] = 1; //send signal at the thread pool to update measurements
+	updateConstraints.ones();
+
 	//join (all of them must become 0 to continue) [becomes non-blocking otherwise]
 	if (PC_Calc_Method == _parallel) {
-		while (	updateConstraints[0]==1 || 
-				updateConstraints[1]==1 || 
-				updateConstraints[2]==1 || 
-				updateConstraints[3]==1 || 
-				updateConstraints[4]==1 || 
-				updateConstraints[5]==1 	) {
-			usleep(5); //sleep for a while to avoid CPU 100%
+		while (	any(updateConstraints) ) {
+			// usleep(1); //sleep for a while to avoid CPU 100%
 		}
 	}
+
 }
 
 /*! \brief Thread impelemtation of performance constraints
@@ -340,19 +400,37 @@ void PC::findBestManip(){
 * More computationally heavy because of matrix copies and multiple declarations but non-blocking
 */
 void PC::Thread(int axis, int option){
-	int T_R = (axis<3) ? 0 : 1; //0 if translational, 1 if rotational [If seperate=false, the value of T_R doesn't play any role]
+	int T_R;
 	double grad_w;
+	arma::vec Qv, dp, dq;
+	if (gradient_type == _cartesian) {
+		T_R = (axis<3) ? 0 : 1; //0 if translational, 1 if rotational [If seperate=false, the value of T_R doesn't play any role]
+		dp.resize(6);
+	}
+	else if (gradient_type == _joints) {
+		T_R = 0;
+		dq.resize(n);
+	}
 	arma::mat Jc(6,n);
 
 	while(!stop_pConstraints_pool) {
-		if (updateConstraints[axis]) {
+		if (updateConstraints(axis)) {
 
-			arma::vec dp(6); dp.fill(0.0); 
-			dp.at(axis)=dx; //virtual Cart. velocity for local search
+			if (gradient_type == _cartesian) {
+				dp.fill(0.0); 
+				dp.at(axis)=dx; //virtual Cart. velocity for local search
+				
+				Qv = arma::pinv(J)*dp + Qinit; //new virtual joint values
+			}
+			else if (gradient_type == _joints) {
+				arma::vec dq(n);
+				dq.fill(0.0); 
+				dq.at(axis)=dx; //infinitesimal joint movement
+				
+				Qv = dq + Qinit; //new virtual joint values
+			}
 			
-			arma::vec Qv = arma::pinv(J)*dp + Qinit; //new virtual joint values
-			
-			get_Jsym(Qv, Jc); //calculate J for those new virtual joint values 
+			get_Jsym_spatial(Qv, Jc); //calculate J for those new virtual joint values 
 			
 			switch (option){
 				case 1:			//Manipulability metric
@@ -368,10 +446,10 @@ void PC::Thread(int axis, int option){
 			
 			Aw.at(axis) = grad_w / dx; 
 
-			updateConstraints[axis] = 0; //finished
+			updateConstraints(axis) = 0.; //finished
 		}
 		else
-			usleep(10); //sleep for a while to avoid CPU 100%
+			usleep(1); //sleep for a while to avoid CPU 100%. Sleep seems to be necessary within the thread.
 	}
 }
 
@@ -381,13 +459,13 @@ void PC::Thread(int axis, int option){
 void PC::threadpool_create(int option) {
 	if (verbose) std::cout << "Creating thread pool...";
 	stop_pConstraints_pool = 0;
-	for (int axis=0; axis<6; axis++)
-		updateConstraints[axis] = 0;
 
-	for (int axis=0; axis<6; axis++){ //for each Cartesian direction
-		pconstraints[axis] = std::thread(&PC::Thread, this, axis, option);
+	updateConstraints.zeros();
+
+	for (int axis=0; axis<updateConstraints.size(); axis++){ //for each Cartesian direction
+		pconstraints.push_back(std::thread(&PC::Thread, this, axis, option));
 	}
-	if (verbose) std::cout << " done!" << std::endl;
+	if (verbose) std::cout << " done! " << pconstraints.size() << " threads created." << std::endl;
 }
 
 /*! \brief Joint threads of parallel calculation of performance constraints
@@ -395,8 +473,8 @@ void PC::threadpool_create(int option) {
 */
 void PC::threadpool_join() {
 	stop_pConstraints_pool = 1;
-	for (int axis=0; axis<6; axis++){ //for each Cartesian direction
-		pconstraints[axis].join();
+	for (int axis=0; axis<updateConstraints.size(); axis++){ //for each Cartesian direction
+		pconstraints.at(axis).join();
 	}
 }
 
