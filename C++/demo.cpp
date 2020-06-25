@@ -13,7 +13,7 @@ Copyright 2020 Fotios Dimeas
 #include <cstdlib>
 #include <iostream>
 
-#define ARMA_DONT_USE_CXX11 //remove warning for incomplete C++11 support
+// #define ARMA_DONT_USE_CXX11 //remove warning for incomplete C++11 support
 #include "armadillo" //Linear Algebra Library
 #include "performanceConstraints.h"
 
@@ -37,13 +37,13 @@ int main(int argc, char** argv) {
 
 	/// Separate indices for translation or rotation
 	// PC pConstraints(	0.011,	0.03,	0.15,	0.5,	1.0,	1.0,	1,	_serial); //Using manipulability index
-	// PC pConstraints(	0.03,	0.14,	0.1,	0.5,	1.0,	1.0,	2,	_parallel); //Using MSV (better for human robot interaction)
+	PC pConstraints(	0.03,	0.14,	0.1,	0.5,	1.0,	1.0,	2,	_parallel); //Using MSV (better for human robot interaction)
 	
 	/// Combined indices
 	// PC pConstraints(	0.01,	0.3,	1.0,	1,	_parallel); //Using MSV (better for human robot interaction)
 
 	// Only calculate gradient
-	PC pConstraints(1,  _serial, _cartesian, false) ;
+	// PC pConstraints(1,  _serial, _cartesian, false) ;
 
 	pConstraints.setVerbose(1); //Set debug info. Comment or set to 0 to disable
 
@@ -58,18 +58,18 @@ int main(int argc, char** argv) {
 	for (i=0; i<10; i++) //this is supposed to be a simulation control loop
 	{
 		// std::cout << "1\n";
-		// pConstraints.updateCurrentConfiguration(q); //measure the robot's configuration and put it here
-		// // std::cout << "2\n";
-		// pConstraints.get_Jsym_spatial(q, J); //calculate J from current q
-		// // std::cout << "3\n";
-		// pConstraints.updateCurrentJacobian(J); 
-		// pConstraints.updatePC(q); //Performance constraints are calculated in here
-		// arma::vec F = pConstraints.getSingularityTreatmentForce(); //
-
 		pConstraints.updateCurrentConfiguration(q); //measure the robot's configuration and put it here
+		// std::cout << "2\n";
 		pConstraints.get_Jsym_spatial(q, J); //calculate J from current q
+		// std::cout << "3\n";
 		pConstraints.updateCurrentJacobian(J); 
-		pConstraints.calculateGradient();
+		pConstraints.updatePC(q); //Performance constraints are calculated in here
+		arma::vec F = pConstraints.getSingularityTreatmentForce(); //
+
+		// pConstraints.updateCurrentConfiguration(q); //measure the robot's configuration and put it here
+		// pConstraints.get_Jsym_spatial(q, J); //calculate J from current q
+		// pConstraints.updateCurrentJacobian(J); 
+		// pConstraints.calculateGradient();
 		arma::vec A = pConstraints.getGradient();
 		A.t().print();
 

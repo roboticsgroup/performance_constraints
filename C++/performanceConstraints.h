@@ -10,7 +10,7 @@ Author: Fotis Dimeas
 Copyright 2020 Fotios Dimeas
  */
 
-#define ARMA_DONT_USE_CXX11 //remove warning for incomplete C++11 support
+// #define ARMA_DONT_USE_CXX11 //remove warning for incomplete C++11 support
 #include "armadillo" //Linear Algebra Library
 #include <thread>
 #include <unistd.h>
@@ -87,8 +87,8 @@ private:
 	PCcalculation PC_Calc_Method; //serial or parallel calculation
 	GradientWRT gradient_type; //with respect to cartesian frame or joints
 
-	arma::mat::fixed<6,7> J; //This is the tool Jacobian matrix, usually provided by the robot controller
-	arma::mat::fixed<6,7> J_sym; //The Jacobian matrix should be available in symbolic function. The KUKA LWR 4+ is provided here as an example.
+	arma::mat::fixed<6,7> J; //This is the Jacobian matrix at the current configuration of the robot. It is calculated internally based on the current q.
+	arma::mat::fixed<6,7> J_sym; //The Jacobian matrix should be available in symbolic function. That of KUKA LWR 4+ is provided here as an example.
 	
 	// 2 part indices [translational, rotational]
 	arma::vec::fixed<2> w; //manipulability index of current position, calculated in every loop inside msrJacobian()

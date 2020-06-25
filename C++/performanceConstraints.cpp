@@ -158,20 +158,20 @@ void PC::calcCurrentManipulability() {
 }
 
 /// Calculate and return the augmented transl. or rotational manipulability
-double PC::calcManipulability(const arma::mat J, const int T_R)
+double PC::calcManipulability(const arma::mat J_, const int T_R)
 {
 	if (separate) {
 		if (T_R==0) { //translational
-			// return sqrt(det(J.rows(0,2)*J.rows(0,2).t())); //weak sense
-			return sqrt(det( J.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(3,5))*J.rows(3,5)) * J.rows(0,2).t() )); //strong sense
+			// return sqrt(det(J_.rows(0,2)*J_.rows(0,2).t())); //weak sense
+			return sqrt(det( J_.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(3,5))*J_.rows(3,5)) * J_.rows(0,2).t() )); //strong sense
 		}
 		else { //rotational
-			// return sqrt(det(J.rows(3,5)*J.rows(3,5).t())); //weak sense
-			return sqrt(det( J.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(0,2))*J.rows(0,2)) * J.rows(3,5).t() )); //strong sense
+			// return sqrt(det(J_.rows(3,5)*J_.rows(3,5).t())); //weak sense
+			return sqrt(det( J_.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(0,2))*J_.rows(0,2)) * J_.rows(3,5).t() )); //strong sense
 		}
 	}
 	else {
-		return sqrt(det( J * J.t() )); 
+		return sqrt(det( J_ * J_.t() )); 
 	}
 }
 
@@ -198,35 +198,35 @@ void PC::calcCurrentSVD(){
 }
 
 /// Calculate and return the augmented transl. or rotational MSV
-double PC::calcMSV(const arma::mat J, const int T_R) {
+double PC::calcMSV(const arma::mat J_, const int T_R) {
 	arma::vec sigma;
 	if (separate) {
 		if (T_R==0) { //translational
-			sigma = arma::svd( J.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(3,5))*J.rows(3,5)) ); 
+			sigma = arma::svd( J_.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(3,5))*J_.rows(3,5)) ); 
 		}
 		else { //rotational
-			sigma = arma::svd( J.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(0,2))*J.rows(0,2)) ); 
+			sigma = arma::svd( J_.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(0,2))*J_.rows(0,2)) ); 
 		}
 	}
 	else {
-		sigma = arma::svd( J );
+		sigma = arma::svd( J_ );
 	}
 	return arma::min(sigma);
 }
 
 /// Calculate and return the augmented transl. or rotational inverse condition number (LCI)
-double PC::calciCN(const arma::mat J, const int T_R) {
+double PC::calciCN(const arma::mat J_, const int T_R) {
 	arma::vec sigma;
 	if (separate) {
 		if (T_R==0) { //translational
-			sigma = arma::svd( J.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(3,5))*J.rows(3,5)) ); 
+			sigma = arma::svd( J_.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(3,5))*J_.rows(3,5)) ); 
 		}
 		else { //rotational
-			sigma = arma::svd( J.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(0,2))*J.rows(0,2)) ); 
+			sigma = arma::svd( J_.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(0,2))*J_.rows(0,2)) ); 
 		}
 	}
 	else {
-		sigma = arma::svd( J );
+		sigma = arma::svd( J_ );
 	}
 	return arma::min(sigma)/arma::max(sigma);
 }
@@ -354,7 +354,7 @@ void PC::findBestManip(int option){
 			Qv = dq + Qinit; //new virtual joint values
 		}
 		
-		get_Jsym_spatial(Qv, J_sym); //calculate J for those new virtual joint values (This overwrites the J7_sym global variable)
+		get_Jsym_spatial(Qv, J_sym); //calculate J for those new virtual joint values (This overwrites the J_sym global variable)
 		
 		switch (option){
 			case 1:			//Manipulability metric
