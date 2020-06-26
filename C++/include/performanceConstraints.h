@@ -10,6 +10,10 @@ Author: Fotis Dimeas
 Copyright 2020 Fotios Dimeas
  */
 
+
+// #ifndef PERFORMANCECONSTRAINTS_H
+// #define VIRTUAL_FIXTURES_CONTROLLER_H
+
 // #define ARMA_DONT_USE_CXX11 //remove warning for incomplete C++11 support
 #include "armadillo" //Linear Algebra Library
 #include <thread>
@@ -99,3 +103,5 @@ private:
 	arma::wall_clock timer;
 	bool separate;
 };
+
+// #endif 

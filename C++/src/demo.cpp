@@ -14,8 +14,8 @@ Copyright 2020 Fotios Dimeas
 #include <iostream>
 
 // #define ARMA_DONT_USE_CXX11 //remove warning for incomplete C++11 support
-#include "armadillo" //Linear Algebra Library
-#include "performanceConstraints.h"
+#include <armadillo> //Linear Algebra Library
+#include <performance_constraints/performanceConstraints.h>
 #include <ros/ros.h>
 #include <ros/package.h>
 

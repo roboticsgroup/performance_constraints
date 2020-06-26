@@ -15,7 +15,7 @@ Author: Fotis Dimeas
 Copyright 2020 Fotios Dimeas
 */
 
-#include "performanceConstraints.h"
+#include <performance_constraints/performanceConstraints.h>
 
 //Jacobian expressed on the tool frame
 void PC::get_Jsym_body(const arma::vec jntvalues, arma::mat& J) {

@@ -15,7 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   autharl_core # Remove if you don't have this 
 )
 
-catkin_package()
+catkin_package(INCLUDE_DIRS include)
 
 include_directories(INCLUDE_DIRS
   include
@@ -36,3 +36,13 @@ target_link_libraries(demo
 #   armadillo   #uncomment if you don't have autharl_core
 )
 
+add_library(performance-constraints
+  src/performanceConstraints.cpp
+  src/Jacobian.cpp)
+
+add_dependencies(performance-constraints
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS})
+
+target_link_libraries(performance-constraints
+  ${catkin_LIBRARIES})
