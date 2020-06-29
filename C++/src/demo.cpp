@@ -41,14 +41,14 @@ int main(int argc, char** argv) {
 	*/
 
 	/// Separate indices for translation or rotation
-	// PC pConstraints(	0.011,	0.03,	0.15,	0.5,	1.0,	1.0,	1,	_serial); //Using manipulability index
-	PC pConstraints(	0.03,	0.14,	0.1,	0.5,	1.0,	1.0,	2,	_parallel); //Using MSV (better for human robot interaction)
+	// PC pConstraints(	0.011,	0.03,	0.15,	0.5,	1.0,	1.0,	_manipulability,	_serial); //Using manipulability index
+	PC pConstraints(	0.03,	0.14,	0.1,	0.5,	1.0,	1.0,	_MSV,	_parallel); //Using MSV (better for human robot interaction)
 	
 	/// Combined indices
 	// PC pConstraints(	0.01,	0.3,	1.0,	1,	_parallel); //Using MSV (better for human robot interaction)
 
 	// Only calculate gradient
-	// PC pConstraints(1,  _serial, _cartesian, false) ;
+	// PC pConstraints(_manipulability,  _serial, _cartesian, false) ;
 
 	pConstraints.setVerbose(1); //Set debug info. Comment or set to 0 to disable
 

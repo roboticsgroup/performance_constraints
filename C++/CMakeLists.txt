@@ -21,6 +21,17 @@ include_directories(INCLUDE_DIRS
   include
   ${catkin_INCLUDE_DIRS})
 
+add_library(performance-constraints
+  src/performanceConstraints.cpp
+  src/Jacobian.cpp)
+
+add_dependencies(performance-constraints
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS})
+
+target_link_libraries(performance-constraints
+  ${catkin_LIBRARIES})
+
 add_executable(demo
   src/demo.cpp
   src/performanceConstraints.cpp
@@ -35,14 +46,3 @@ target_link_libraries(demo
   pthread
 #   armadillo   #uncomment if you don't have autharl_core
 )
-
-add_library(performance-constraints
-  src/performanceConstraints.cpp
-  src/Jacobian.cpp)
-
-add_dependencies(performance-constraints
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS})
-
-target_link_libraries(performance-constraints
-  ${catkin_LIBRARIES})

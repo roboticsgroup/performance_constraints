@@ -11,18 +11,24 @@ Copyright 2020 Fotios Dimeas
  */
 
 
-// #ifndef PERFORMANCECONSTRAINTS_H
-// #define VIRTUAL_FIXTURES_CONTROLLER_H
+#ifndef PERFORMANCECONSTRAINTS_H
+#define PERFORMANCECONSTRAINTS_H
 
 // #define ARMA_DONT_USE_CXX11 //remove warning for incomplete C++11 support
 #include "armadillo" //Linear Algebra Library
 #include <thread>
-#include <unistd.h>
+#include <cstdlib>
 
 #ifndef M_PI 
 #define M_PI 3.14159265359
 #endif
 
+/// Performance index
+enum PerformanceIndex {
+	_manipulability,
+	_MSV,
+	_iCN
+};
 
 /// Performance Constraints Calculation method
 enum PCcalculation {
@@ -39,9 +45,9 @@ enum GradientWRT {
 class PC
 {
 public:
-	PC(double _crit_t, double _thres_t, double _crit_r, double _thres_r, double _lambda_t, double _lambda_r, int _index, PCcalculation _method);
-	PC(double _crit_t, double _thres_t, double _lambda_t, int _index, PCcalculation _method);
-	PC(int _index, PCcalculation _method, GradientWRT _gradient_type, bool _separate);
+	PC(double _crit_t, double _thres_t, double _crit_r, double _thres_r, double _lambda_t, double _lambda_r, PerformanceIndex _index, PCcalculation _method);
+	PC(double _crit_t, double _thres_t, double _lambda_t, PerformanceIndex _index, PCcalculation _method);
+	PC(PerformanceIndex _index, PCcalculation _method, GradientWRT _gradient_type, bool _separate);
 	~PC();
 	void init();
 	void updatePC(const arma::vec q);
@@ -51,11 +57,11 @@ public:
 	void calcSingularityTreatmentForce(); //calculate the spring forces due to Singularity Treatment (call this from SingularityTreatment() )
 	double getSingularityTreatmentForce(int index){ return Favoid.at(index); } //return elements of the force/torque
 	arma::vec getSingularityTreatmentForce() {return Favoid;}; //return the entire vector
-	void findBestManip(int option); //local search in the Cartesian tool frame (translations only) for best W (serial implementation)
+	void findBestManip(PerformanceIndex option); //local search in the Cartesian tool frame (translations only) for best W (serial implementation)
 	void findBestManip(); //Parallel performance constraints
-	void threadpool_create(int option); //Start thread-pool. Call this before entering control loop
+	void threadpool_create(PerformanceIndex option); //Start thread-pool. Call this before entering control loop
 	void threadpool_join(); //Joint threads on finish
-	void Thread(int axis, int option); //Thread implementation of Performance constraints
+	void Thread(int axis, PerformanceIndex option); //Thread implementation of Performance constraints
 	
 	void calcCurrentManipulability(); //calculate the manipulability index w=[T, R]
 	double calcManipulability(const arma::mat J, const int T_R); //calculate and return the manipulability index
@@ -87,7 +93,7 @@ private:
 	int stop_pConstraints_pool;
 	arma::vec updateConstraints;
 	double crit_t, thres_t, crit_r, thres_r, lambda_t, lambda_r;
-	int PC_index; //performance constraints option
+	PerformanceIndex PC_index; //performance constraints option
 	PCcalculation PC_Calc_Method; //serial or parallel calculation
 	GradientWRT gradient_type; //with respect to cartesian frame or joints
 
@@ -104,4 +110,4 @@ private:
 	bool separate;
 };
 
-// #endif 
+#endif 

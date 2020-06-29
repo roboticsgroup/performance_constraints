@@ -20,7 +20,7 @@ Copyright 2020 Fotios Dimeas
 PC::PC(	double _crit_t, double _thres_t, 
 	double _crit_r, double _thres_r, 
 	double _lambda_t, double _lambda_r, 
-	int _index, 
+	PerformanceIndex _index, 
 	PCcalculation _method) {
 
 	crit_t 		= _crit_t;
@@ -43,7 +43,7 @@ PC::PC(	double _crit_t, double _thres_t,
 */
 PC::PC(	double _crit_t, double _thres_t, 
 	double _lambda_t,  
-	int _index, 
+	PerformanceIndex _index, 
 	PCcalculation _method) {
 
 	crit_t 		= _crit_t;
@@ -61,7 +61,7 @@ PC::PC(	double _crit_t, double _thres_t,
 /* Call this constructor to calculate only the Gradient.
 * \param _method Available calculation methods: _serial, _parallel, _parallel_nonblock
 */
-PC::PC(	int _index, 
+PC::PC(	PerformanceIndex _index, 
 		PCcalculation _method,
 		GradientWRT _gradient_type,
 		bool _separate) {
@@ -85,10 +85,10 @@ PC::PC(	int _index,
 }
 
 void PC::init() {
-	if (PC_index<1 || PC_index>3) {
-		std::cout << "Unknown calculation option '" << PC_index << "'. Use between 1 for manipulability, 2 for MSV or 3 for iCN." << std::endl;
-		std::cout << "Using 2 as a defult" << std::endl;
-		PC_index = 2;
+	if ( !(PC_index==_manipulability || PC_index==_MSV || PC_index==_iCN)) {
+		std::cout << "Unknown calculation option '" << PC_index << "'. Use: _manipulability, _MSV or _iCN." << std::endl;
+		std::cout << "Using _MSV as a defult" << std::endl;
+		PC_index = _MSV;
 	}
 
 	n=7; //by default use all 7 joints for differential inverse kinematics etc.
@@ -117,13 +117,13 @@ void PC::init() {
 	
 	std::cout << "PC has been initialized using method: "; 
 	switch (PC_index){
-		case 1:			//Manipulability index
+		case _manipulability:			//Manipulability index
 			std::cout << "'Manipulability Index' ";
 			break;
-		case 2:			//Minimum singulr value
+		case _MSV:			//Minimum singulr value
 			std::cout << "'Minimum Singular Value' ";
 			break;
-		case 3:			//Condition number
+		case _iCN:			//Inverse condition number
 			std::cout << "'Inverse Condition Number' ";
 			break;
 	}
@@ -286,15 +286,15 @@ void PC::updatePC()
 void PC::calculateGradient() {
 	//Select performance index
 	switch (PC_index){
-		case 1:			//Manipulability index
+		case _manipulability:			//Manipulability index
 			calcCurrentManipulability(); 
 			ST_current = w;
 			break;
-		case 2:			//Minimum singulr value
+		case _MSV:			//Minimum singulr value
 			calcCurrentSVD(); 
 			ST_current = msv;
 			break;
-		case 3:			//Condition number
+		case _iCN:			//Condition number
 			calcCurrentSVD(); 
 			ST_current = icn;
 			break;
@@ -332,9 +332,9 @@ void PC::calcSingularityTreatmentForce(){
 
 /*! \brief Calculate the gradient of the performance index wrt to the Cartesian frame. Serial Implementation
 *
-* \param option selects between 1:manipulability, 2:minimum singular value, 3:Inv condition number
+* \param option selects between _manipulability, _MSV, _iCN
 */
-void PC::findBestManip(int option){
+void PC::findBestManip(PerformanceIndex option){
 	Qinit = Q_measured; //copy current measured joint values (q_0)
 	
 	for (int axis=0; axis<Aw.size(); axis++){ //for each direction (cartesian or joint)
@@ -357,13 +357,13 @@ void PC::findBestManip(int option){
 		get_Jsym_spatial(Qv, J_sym); //calculate J for those new virtual joint values (This overwrites the J_sym global variable)
 		
 		switch (option){
-			case 1:			//Manipulability metric
+			case _manipulability:			//Manipulability metric
 				grad_w = calcManipulability(J_sym, T_R)-w[T_R];
 				break;
-			case 2:			//Minimum singulr value metric
+			case _MSV:			//Minimum singulr value metric
 				grad_w = calcMSV(J_sym, T_R) - msv[T_R];
 				break;
-			case 3:			//Minimum singulr value metric
+			case _iCN:			//Minimum singulr value metric
 				grad_w = calciCN(J_sym, T_R) - icn[T_R];
 				break;
 		}
@@ -376,7 +376,6 @@ void PC::findBestManip(int option){
 *
 * _parallel is a blocking function
 * _parallel_nonblock means that in each loop, the last calculated constraints from the previous iteration will be applied [WARNING! Not Advised!]
-* The option selects between 1:manipulability, 2:minimum singular value, 3:Inv condition number
 */
 void PC::findBestManip(){
 	Qinit = Q_measured; //copy current measured joint values (q_0)
@@ -399,7 +398,7 @@ void PC::findBestManip(){
 * Thread-pool like implemetation. Start a thread for each of the Cartesian directions with the desired option (index).
 * More computationally heavy because of matrix copies and multiple declarations but non-blocking
 */
-void PC::Thread(int axis, int option){
+void PC::Thread(int axis, PerformanceIndex option){
 	int T_R;
 	double grad_w;
 	arma::vec Qv, dp, dq;
@@ -433,13 +432,13 @@ void PC::Thread(int axis, int option){
 			get_Jsym_spatial(Qv, Jc); //calculate J for those new virtual joint values 
 			
 			switch (option){
-				case 1:			//Manipulability metric
+				case _manipulability:			//Manipulability metric
 					grad_w = calcManipulability(Jc, T_R)-w[T_R];
 					break;
-				case 2:			//Minimum singulr value metric
+				case _MSV:			//Minimum singulr value metric
 					grad_w = calcMSV(Jc, T_R) - msv[T_R];
 					break;
-				case 3:			//Minimum singulr value metric
+				case _iCN:			//Minimum singulr value metric
 					grad_w = calciCN(Jc, T_R) - icn[T_R];
 					break;
 			}
@@ -456,7 +455,7 @@ void PC::Thread(int axis, int option){
 /*! \brief Spawn threads for parallel calculation of performance constraints
 *
 */
-void PC::threadpool_create(int option) {
+void PC::threadpool_create(PerformanceIndex option) {
 	if (verbose) std::cout << "Creating thread pool...";
 	stop_pConstraints_pool = 0;
 
