@@ -114,7 +114,6 @@ void PC::init() {
 		threadpool_create(PC_index); //start thread pool
 	}
 
-	
 	std::cout << "PC has been initialized using method: "; 
 	switch (PC_index){
 		case _manipulability:			//Manipulability index
@@ -148,13 +147,14 @@ PC::~PC() {
 /// Calculate the current augmented translational and rotational manipulability from J (Yoshikawa, 1990)
 void PC::calcCurrentManipulability() {
 	if (separate) {
-		w(0) = sqrt(det( J.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(3,5))*J.rows(3,5)) * J.rows(0,2).t() )); //translational strong sense
-		w(1) = sqrt(det( J.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(0,2))*J.rows(0,2)) * J.rows(3,5).t() )); //rotational strong sense	
+		w(0) = sqrt(arma::det( J.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(3,5))*J.rows(3,5)) * J.rows(0,2).t() )); //translational strong sense
+		w(1) = sqrt(arma::det( J.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(0,2))*J.rows(0,2)) * J.rows(3,5).t() )); //rotational strong sense	
 	}
 	else {
-		w(0) = sqrt(det( J * J.t() )); 
+		w(0) = sqrt(arma::det( J * J.t() )); 
 		w(1) = w(0); //only used in the case of seperate=false
 	}
+	// if (verbose) std::cout << "Calculated current manipulability: " << w(0) << " | " << w(1) << std::endl;
 }
 
 /// Calculate and return the augmented transl. or rotational manipulability
@@ -162,16 +162,16 @@ double PC::calcManipulability(const arma::mat J_, const int T_R)
 {
 	if (separate) {
 		if (T_R==0) { //translational
-			// return sqrt(det(J_.rows(0,2)*J_.rows(0,2).t())); //weak sense
-			return sqrt(det( J_.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(3,5))*J_.rows(3,5)) * J_.rows(0,2).t() )); //strong sense
+			// return sqrt(arma::det(J_.rows(0,2)*J_.rows(0,2).t())); //weak sense
+			return sqrt(arma::det( J_.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(3,5))*J_.rows(3,5)) * J_.rows(0,2).t() )); //strong sense
 		}
 		else { //rotational
-			// return sqrt(det(J_.rows(3,5)*J_.rows(3,5).t())); //weak sense
-			return sqrt(det( J_.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(0,2))*J_.rows(0,2)) * J_.rows(3,5).t() )); //strong sense
+			// return sqrt(arma::det(J_.rows(3,5)*J_.rows(3,5).t())); //weak sense
+			return sqrt(arma::det( J_.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(0,2))*J_.rows(0,2)) * J_.rows(3,5).t() )); //strong sense
 		}
 	}
 	else {
-		return sqrt(det( J_ * J_.t() )); 
+		return sqrt(arma::det( J_ * J_.t() )); 
 	}
 }
 
@@ -238,11 +238,12 @@ double PC::calciCN(const arma::mat J_, const int T_R) {
 void PC::updatePC(const arma::vec q){
 	updateCurrentConfiguration(q); //measure the robot's configuration and put it here
 	
-	get_Jsym_spatial(q, J); //calculate J from current q
+	J = get_Jsym_spatial(q); //calculate J from current q
 
 	updatePC();
 
 }
+
 /*! \brief Calculate the Performance Constraints
 *
 * Call this function from outside, but fist need to updateCurrentConfiguration(q), get_Jsym_spatial(q, J) and updateCurrentJacobian(J)
@@ -276,13 +277,22 @@ void PC::updatePC()
 
 	if (verbose) {
 		double time = timer.toc();
-		if (separate) std::cout << "Current performance (Lin,Rot): " << ST_current(0) << " | " << ST_current(1) << std::endl;
-		else std::cout << "Current performance (combined): " << ST_current(0) << std::endl;
 		std::cout << "Constraint forces: "; Favoid.t().raw_print();
 		std::cout << "Took: " << time << "sec" << std::endl;
 	}
 }
 
+/// Wrapper of calculateGradient() that gets the current joint positions as an argument.
+void PC::calculateGradient(const arma::vec q){
+	updateCurrentConfiguration(q); //measure the robot's configuration and put it here
+	
+	J = get_Jsym_spatial(q); //calculate J from current q
+
+	calculateGradient();
+
+}
+
+///  To call this function from outside, make sure you call first: updateCurrentConfiguration(q), get_Jsym_spatial(q, J) and updateCurrentJacobian(J)
 void PC::calculateGradient() {
 	//Select performance index
 	switch (PC_index){
@@ -305,6 +315,11 @@ void PC::calculateGradient() {
 		findBestManip(PC_index); //serial calculation
 	else
 		findBestManip(); //parallel calculation
+
+	if (verbose) {
+		if (separate) std::cout << "Current performance (Lin,Rot): " << ST_current(0) << " | " << ST_current(1) << std::endl;
+		else std::cout << "Current performance (combined): " << ST_current(0) << std::endl;
+	}
 }
 
 /*! \brief Calculate the reaction force from the Performance constraints
@@ -354,7 +369,7 @@ void PC::findBestManip(PerformanceIndex option){
 			Qv = dq + Qinit; //new virtual joint values
 		}
 		
-		get_Jsym_spatial(Qv, J_sym); //calculate J for those new virtual joint values (This overwrites the J_sym global variable)
+		J_sym = get_Jsym_spatial(Qv); //calculate J for those new virtual joint values (This overwrites the J_sym global variable)
 		
 		switch (option){
 			case _manipulability:			//Manipulability metric
@@ -401,7 +416,7 @@ void PC::findBestManip(){
 void PC::Thread(int axis, PerformanceIndex option){
 	int T_R;
 	double grad_w;
-	arma::vec Qv, dp, dq;
+	arma::vec Qv(n), dp, dq;
 	if (gradient_type == _cartesian) {
 		T_R = (axis<3) ? 0 : 1; //0 if translational, 1 if rotational [If seperate=false, the value of T_R doesn't play any role]
 		dp.resize(6);
@@ -422,14 +437,14 @@ void PC::Thread(int axis, PerformanceIndex option){
 				Qv = arma::pinv(J)*dp + Qinit; //new virtual joint values
 			}
 			else if (gradient_type == _joints) {
-				arma::vec dq(n);
+				// arma::vec dq(n);
 				dq.fill(0.0); 
 				dq.at(axis)=dx; //infinitesimal joint movement
 				
 				Qv = dq + Qinit; //new virtual joint values
 			}
 			
-			get_Jsym_spatial(Qv, Jc); //calculate J for those new virtual joint values 
+			Jc = get_Jsym_spatial(Qv); //calculate J for those new virtual joint values 
 			
 			switch (option){
 				case _manipulability:			//Manipulability metric
@@ -489,6 +504,10 @@ void PC::updateCurrentConfiguration(const arma::vec q){
 */
 void PC::updateCurrentJacobian(const arma::mat J_current){
 	J = J_current;
+}
+
+double PC::getPerformanceIndex(int which){
+	return ST_current(which);
 }
 
 int PC::checkForSingularity() {

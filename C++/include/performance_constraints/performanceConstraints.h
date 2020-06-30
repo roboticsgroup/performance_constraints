@@ -52,6 +52,7 @@ public:
 	void init();
 	void updatePC(const arma::vec q);
 	void updatePC(); //
+	void calculateGradient(const arma::vec q);
 	void calculateGradient();
 	arma::vec getGradient() {return Aw;};
 	void calcSingularityTreatmentForce(); //calculate the spring forces due to Singularity Treatment (call this from SingularityTreatment() )
@@ -72,10 +73,11 @@ public:
 	double getMSV(int T_R){ return msv[T_R]; }; // Return the current augmented translational or rotational Minimum Singular Value
 	double getiCondNum(int T_R){ return icn[T_R]; }; // Return the current augmented translational or rotational inverse condition number
 	
-	void get_Jsym_body(const arma::vec jntvalues, arma::mat& J); //Calculate the body Jacobian of the tool frame
-	void get_Jsym_spatial(const arma::vec jntvalues, arma::mat& J); //Calculate spatial Jacobian of the base frame
+	arma::mat get_Jsym_body(const arma::vec jntvalues); //Calculate the body Jacobian of the tool frame
+	arma::mat get_Jsym_spatial(const arma::vec jntvalues); //Calculate spatial Jacobian of the base frame
 	void updateCurrentConfiguration(const arma::vec q); /** Update current robot configuration*/
 	void updateCurrentJacobian(const arma::mat J_current);
+	double getPerformanceIndex(int which=0);
 	int checkForSingularity();
 	void setVerbose(int lvl) { verbose = lvl;}; //0 to disable
 private:

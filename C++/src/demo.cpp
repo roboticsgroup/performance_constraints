@@ -42,44 +42,51 @@ int main(int argc, char** argv) {
 
 	/// Separate indices for translation or rotation
 	// PC pConstraints(	0.011,	0.03,	0.15,	0.5,	1.0,	1.0,	_manipulability,	_serial); //Using manipulability index
-	PC pConstraints(	0.03,	0.14,	0.1,	0.5,	1.0,	1.0,	_MSV,	_parallel); //Using MSV (better for human robot interaction)
+	// PC pConstraints(	0.03,	0.14,	0.1,	0.5,	1.0,	1.0,	_MSV,	_parallel); //Using MSV (better for human robot interaction)
 	
 	/// Combined indices
-	// PC pConstraints(	0.01,	0.3,	1.0,	1,	_parallel); //Using MSV (better for human robot interaction)
+	// PC pConstraints(	0.01,	0.3,	1.0,	_manipulability,	_serial); //Using MSV (better for human robot interaction)
 
 	// Only calculate gradient
-	// PC pConstraints(_manipulability,  _serial, _cartesian, false) ;
+	PC pConstraints(_manipulability,  _serial, _joints, false) ;
 
-	pConstraints.setVerbose(1); //Set debug info. Comment or set to 0 to disable
+	// pConstraints.setVerbose(1); //Set debug info. Comment or set to 0 to disable
 
 	arma::vec q; q << 0. << -M_PI/4. << 0. << M_PI/2. << 0. << -M_PI/4. << 0.0; //An example initial configuration 
 	
 	arma::mat J(6,7);  
-	cout.precision(4); cout.setf(ios::fixed);
+	cout.precision(10); cout.setf(ios::fixed);
 	
 	cout << "Entering control loop...\n";
 	arma::wall_clock timer; timer.tic();
 	int i;
 	for (i=0; i<10; i++) //this is supposed to be a simulation control loop
 	{
-		// std::cout << "1\n";
-		pConstraints.updateCurrentConfiguration(q); //measure the robot's configuration and put it here
-		// std::cout << "2\n";
-		pConstraints.get_Jsym_spatial(q, J); //calculate J from current q
-		// std::cout << "3\n";
-		pConstraints.updateCurrentJacobian(J); 
-		pConstraints.updatePC(q); //Performance constraints are calculated in here
-		arma::vec F = pConstraints.getSingularityTreatmentForce(); //
-
+		// One way to calculate Perf. Constraints
 		// pConstraints.updateCurrentConfiguration(q); //measure the robot's configuration and put it here
-		// pConstraints.get_Jsym_spatial(q, J); //calculate J from current q
+		// J = pConstraints.get_Jsym_spatial(q); //calculate J from current q
+		// pConstraints.updateCurrentJacobian(J); 
+		// pConstraints.updatePC(); //Performance constraints are calculated in here
+		
+		// Another way to calculate PC by putting the q as an argument
+		// pConstraints.updatePC(q); //Performance constraints are calculated in here
+
+		// arma::vec F = pConstraints.getSingularityTreatmentForce(); //
+
+		// Calculate only the gradient without (no treatment force is calculated)
+		// pConstraints.updateCurrentConfiguration(q); //measure the robot's configuration and put it here
+		// J = pConstraints.get_Jsym_spatial(q); //calculate J from current q
 		// pConstraints.updateCurrentJacobian(J); 
 		// pConstraints.calculateGradient();
+		
+		pConstraints.calculateGradient(q);
+
+		// 
 		arma::vec A = pConstraints.getGradient();
 		A.t().print();
 
 		if (pConstraints.checkForSingularity()) { //check for singularity since no handling of the robot's motion is done here
-			cout << "Robot became singular. Stopping simulation after loops: " << i <<endl; 
+			cout << "Robot became singular. Stopping simulation after loops: " << i << endl; 
 			break;	//stop the simulation
 		}
 
@@ -91,9 +98,10 @@ int main(int argc, char** argv) {
 		//Put your controller here (e.g impedance or admittance)
 		//...
 
+		cout << endl;
 	} 
 	double time = timer.toc();
 	cout << "Simulation completed in " <<  time<< "sec."<< endl;
 	cout << "Average time per cycle: " << time/i << "sec."<< endl;
-	// pConstraints.threadpool_join();
+
 }

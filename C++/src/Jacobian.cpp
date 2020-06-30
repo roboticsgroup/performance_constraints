@@ -18,8 +18,11 @@ Copyright 2020 Fotios Dimeas
 #include <performance_constraints/performanceConstraints.h>
 
 //Jacobian expressed on the tool frame
-void PC::get_Jsym_body(const arma::vec jntvalues, arma::mat& J) {
+arma::mat PC::get_Jsym_body(const arma::vec jntvalues) {
 	
+	arma::mat J(6,7);
+	J.zeros(); //very important to initialize to zero!
+
 	double t1 = jntvalues.at(0);
 	double t2 = jntvalues.at(1);
 	double t3 = jntvalues.at(2);
@@ -152,11 +155,16 @@ void PC::get_Jsym_body(const arma::vec jntvalues, arma::mat& J) {
 	J.at(5,4) = t15;
 	J.at(5,6) = 1.0;
 
+	return J;
+
 }
 
 //Jacobian expressed on the base frame
 //// Simplified from Matlab
-void PC::get_Jsym_spatial(const arma::vec jntvalues, arma::mat& J) {
+arma::mat PC::get_Jsym_spatial(const arma::vec jntvalues) {
+
+	arma::mat J(6,7);
+	J.zeros(); //very important to initialize to zero!
 
 	double t1 = jntvalues.at(0);
 	double t2 = jntvalues.at(1);
@@ -446,4 +454,5 @@ void PC::get_Jsym_spatial(const arma::vec jntvalues, arma::mat& J) {
 	J.at(5,5) = t248;
 	J.at(5,6) = t170;
 
+	return J;
 }
