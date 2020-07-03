@@ -82,7 +82,9 @@ int main(int argc, char** argv) {
 		pConstraints.calculateGradient(q);
 
 		// 
-		arma::vec A = pConstraints.getGradient();
+		// arma::vec A = pConstraints.getGradient();
+		// A.t().print();
+		arma::vec A = pConstraints.getGradientScaled(10.0 * M_PI / 180.0, 5.0 * M_PI / 180.0);
 		A.t().print();
 
 		if (pConstraints.checkForSingularity()) { //check for singularity since no handling of the robot's motion is done here
@@ -98,7 +100,7 @@ int main(int argc, char** argv) {
 		//Put your controller here (e.g impedance or admittance)
 		//...
 
-		cout << endl;
+		cout << endl << endl;
 	} 
 	double time = timer.toc();
 	cout << "Simulation completed in " <<  time<< "sec."<< endl;

@@ -128,6 +128,8 @@ void PC::init() {
 	}
 	std::cout << std::endl;
 
+	qlim << 2.9671 << 2.0944 << 2.9671 << 2.0944 << 2.9671 << 2.0944 << 2.9671; //upper joint limits of KUKA LWR
+
 	verbose = 0; //default
 }
 
@@ -490,6 +492,29 @@ void PC::threadpool_join() {
 	for (int axis=0; axis<updateConstraints.size(); axis++){ //for each Cartesian direction
 		pconstraints.at(axis).join();
 	}
+}
+
+arma::vec PC::getGradientScaled(double clearance, double range) {
+	return getJointLimitScaling(clearance, range) * Aw;
+}
+
+double PC::getJointLimitScaling(double clearance, double range) {
+	// arma::abs(Q_measured).t().print("q:");
+	// qlim.t().print("qlim:");
+	// std::cout << "any(): " << arma::any(arma::abs(Q_measured) > qlim - clearance) <<std::endl;
+	if ( arma::any(arma::abs(Q_measured) > qlim - clearance) ) {
+		qlim_max = arma::max(arma::abs(Q_measured) - qlim + clearance);
+		if (qlim_max > range) {
+			return 0.0;
+		}
+		else if (qlim_max > 0.0) {
+			return (range - qlim_max) / range;
+		}
+	}
+	else {
+		return 1.0;
+	}
+
 }
 
 /*! \brief Update current robot configuration

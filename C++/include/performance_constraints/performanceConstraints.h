@@ -55,6 +55,7 @@ public:
 	void calculateGradient(const arma::vec q);
 	void calculateGradient();
 	arma::vec getGradient() {return Aw;};
+	arma::vec getGradientScaled(double clearance, double range);
 	void calcSingularityTreatmentForce(); //calculate the spring forces due to Singularity Treatment (call this from SingularityTreatment() )
 	double getSingularityTreatmentForce(int index){ return Favoid.at(index); } //return elements of the force/torque
 	arma::vec getSingularityTreatmentForce() {return Favoid;}; //return the entire vector
@@ -75,6 +76,8 @@ public:
 	
 	arma::mat get_Jsym_body(const arma::vec jntvalues); //Calculate the body Jacobian of the tool frame
 	arma::mat get_Jsym_spatial(const arma::vec jntvalues); //Calculate spatial Jacobian of the base frame
+	double getJointLimitScaling(double clearance, double range);
+
 	void updateCurrentConfiguration(const arma::vec q); /** Update current robot configuration*/
 	void updateCurrentJacobian(const arma::mat J_current);
 	double getPerformanceIndex(int which=0);
@@ -90,7 +93,7 @@ private:
 	arma::vec::fixed<2> ST_current; //Singularity treatment current value (e.g. manipulability index)
 	arma::vec::fixed<6> Favoid, dp;
 	double dx, grad_w;
-	arma::vec Qv, Qinit, Q_measured, dq; 
+	arma::vec Qv, Qinit, Q_measured, dq, qlim; 
 	std::vector<std::thread> pconstraints;
 	int stop_pConstraints_pool;
 	arma::vec updateConstraints;
@@ -110,6 +113,7 @@ private:
 	int verbose;
 	arma::wall_clock timer;
 	bool separate;
+	double qlim_max;
 };
 
 #endif 
