@@ -15,7 +15,7 @@ Copyright 2020 Fotios Dimeas
 /*! \brief Initialize the Performance Constraints
 *
 * Call the constructor before entering the control loop for separate indices.
-* \param _method Available calculation methods: _serial, _parallel, _parallel_nonblock
+* \param _method Available calculation methods: _serial, _parallel
 */
 PC::PC(	double _crit_t, double _thres_t, 
 	double _crit_r, double _thres_r, 
@@ -39,7 +39,7 @@ PC::PC(	double _crit_t, double _thres_t,
 }
 
 /* Call the constructor before entering the control loop for combined indices in position and orientation.
-* \param _method Available calculation methods: _serial, _parallel, _parallel_nonblock
+* \param _method Available calculation methods: _serial, _parallel
 */
 PC::PC(	double _crit_t, double _thres_t, 
 	double _lambda_t,  
@@ -59,19 +59,21 @@ PC::PC(	double _crit_t, double _thres_t,
 }
 
 /* Call this constructor to calculate only the Gradient.
-* \param _method Available calculation methods: _serial, _parallel, _parallel_nonblock
+* \param _method Available calculation methods: _serial, _parallel
 */
 PC::PC(	PerformanceIndex _index, 
 		PCcalculation _method,
 		GradientWRT _gradient_type,
-		bool _separate) {
+		bool _separate,
+		JacobianToOptimize _optimJacobian) {
 
 	PC_index 	= _index;
 	PC_Calc_Method	= _method;
 	gradient_type = _gradient_type;
+	optimJacobian = _optimJacobian;
 
 	if (gradient_type == _joints) {
-		if (verbose) std::cout << "Warning! Using combined indices when the gradient is wrt. the joints." << std::endl;
+		if (verbose) std::cout << "Warning! Separate parameter is ignored when grad is wrt/ joints." << std::endl;
 		separate = false; //when grad is wrt. joints, there is no point to separate
 	}
 	else if (gradient_type == _cartesian)
@@ -233,6 +235,43 @@ double PC::calciCN(const arma::mat J_, const int T_R) {
 	return arma::min(sigma)/arma::max(sigma);
 }
 
+/// Return the Jacobian to optimize (calculate its gradient) with respect to the joint values. Not used in Cartesian gradient
+arma::mat PC::getJacobianToOptimize(arma::mat Jin) {
+	switch (optimJacobian){
+		case _J:
+			return Jin;
+		
+		case _JT:
+			return Jin.rows(0,2);
+		
+		case _JT_aug:
+			return Jin.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(Jin.rows(3,5))*Jin.rows(3,5));
+		
+		case _JR:
+			return Jin.rows(3,5);
+		
+		case _JR_aug:
+			return Jin.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(Jin.rows(0,2))*Jin.rows(0,2));
+		
+	}
+}
+
+double PC::calcCurrentIndex(arma::mat Jin) {
+	switch(PC_index) {
+	    case _manipulability:
+	        return sqrt(arma::det( Jin * Jin.t() ));
+	        
+	    case _MSV:
+	        return arma::min(arma::svd(Jin));
+	        
+	    case _iCN: 
+	        arma::vec sigma = arma::svd(Jin);
+	        return arma::min(sigma)/(arma::max(sigma));
+	        
+	}
+}
+
+
 /*! \brief Calculate the Performance Constraints
 *
 * Call this function from outside, simply by providing the current q.
@@ -296,32 +335,12 @@ void PC::calculateGradient(const arma::vec q){
 
 ///  To call this function from outside, make sure you call first: updateCurrentConfiguration(q), get_Jsym_spatial(q, J) and updateCurrentJacobian(J)
 void PC::calculateGradient() {
-	//Select performance index
-	switch (PC_index){
-		case _manipulability:			//Manipulability index
-			calcCurrentManipulability(); 
-			ST_current = w;
-			break;
-		case _MSV:			//Minimum singulr value
-			calcCurrentSVD(); 
-			ST_current = msv;
-			break;
-		case _iCN:			//Condition number
-			calcCurrentSVD(); 
-			ST_current = icn;
-			break;
-	}
-
 	//Select calculation method (Serial or parallel)
 	if (PC_Calc_Method == _serial)
 		findBestManip(PC_index); //serial calculation
 	else
 		findBestManip(); //parallel calculation
-
-	if (verbose) {
-		if (separate) std::cout << "Current performance (Lin,Rot): " << ST_current(0) << " | " << ST_current(1) << std::endl;
-		else std::cout << "Current performance (combined): " << ST_current(0) << std::endl;
-	}
+	
 }
 
 /*! \brief Calculate the reaction force from the Performance constraints
@@ -354,35 +373,68 @@ void PC::calcSingularityTreatmentForce(){
 void PC::findBestManip(PerformanceIndex option){
 	Qinit = Q_measured; //copy current measured joint values (q_0)
 	
+	if (gradient_type == _cartesian) {
+		//Select performance index
+		switch (PC_index){
+			case _manipulability:	//Manipulability index
+				calcCurrentManipulability(); 
+				ST_current = w;
+				break;
+			case _MSV:			//Minimum singulr value
+				calcCurrentSVD(); 
+				ST_current = msv;
+				break;
+			case _iCN:			//Condition number
+				calcCurrentSVD(); 
+				ST_current = icn;
+				break;
+		}
+
+		if (verbose) {
+			if (separate) std::cout << "Current performance (Lin,Rot): " << ST_current(0) << " | " << ST_current(1) << std::endl;
+			else std::cout << "Current performance (combined): " << ST_current(0) << std::endl;
+		}
+	}
+	else if (gradient_type == _joints) {
+		//Select Jacobian to optimize
+		ST_current(0) = calcCurrentIndex( getJacobianToOptimize(J) ); 
+		if (verbose) {
+			std::cout << "Current performance: " << ST_current(0) << std::endl;
+		}
+	}
+
 	for (int axis=0; axis<Aw.size(); axis++){ //for each direction (cartesian or joint)
-		int T_R;
+		
 		if (gradient_type == _cartesian) {
-			T_R = (axis<3) ? 0 : 1; //0 if translational, 1 if rotational [If seperate=false, the value of T_R doesn't play any role]
+			int T_R = (axis<3) ? 0 : 1; //0 if translational, 1 if rotational [If seperate=false, the value of T_R doesn't play any role]
 			dp.fill(0.0); 
 			dp.at(axis)=dx; //virtual Cart. velocity for local search
 			
 			Qv = arma::pinv(J)*dp + Qinit; //new virtual joint values
+
+			J_sym = get_Jsym_spatial(Qv); //calculate J for those new virtual joint values (This overwrites the J_sym global variable)
+		
+			switch (option){
+				case _manipulability:			//Manipulability metric
+					grad_w = calcManipulability(J_sym, T_R)-w[T_R];
+					break;
+				case _MSV:			//Minimum singulr value metric
+					grad_w = calcMSV(J_sym, T_R) - msv[T_R];
+					break;
+				case _iCN:			//Minimum singulr value metric
+					grad_w = calciCN(J_sym, T_R) - icn[T_R];
+					break;
+			}
 		}
 		else if (gradient_type == _joints) {
-			T_R = 0;
 			dq.fill(0.0); 
 			dq.at(axis)=dx; //infinitesimal joint movement
 			
 			Qv = dq + Qinit; //new virtual joint values
-		}
-		
-		J_sym = get_Jsym_spatial(Qv); //calculate J for those new virtual joint values (This overwrites the J_sym global variable)
-		
-		switch (option){
-			case _manipulability:			//Manipulability metric
-				grad_w = calcManipulability(J_sym, T_R)-w[T_R];
-				break;
-			case _MSV:			//Minimum singulr value metric
-				grad_w = calcMSV(J_sym, T_R) - msv[T_R];
-				break;
-			case _iCN:			//Minimum singulr value metric
-				grad_w = calciCN(J_sym, T_R) - icn[T_R];
-				break;
+
+			J_sym = get_Jsym_spatial(Qv); //calculate J for those new virtual joint values (This overwrites the J_sym global variable)
+
+			grad_w = calcCurrentIndex( getJacobianToOptimize(J_sym) ) - ST_current(0);
 		}
 
 		Aw.at(axis) = grad_w / dx; 
@@ -392,7 +444,6 @@ void PC::findBestManip(PerformanceIndex option){
 /*! \brief Calculate the gradient of the performance index wrt to the Cartesian frame. Parallel implementation
 *
 * _parallel is a blocking function
-* _parallel_nonblock means that in each loop, the last calculated constraints from the previous iteration will be applied [WARNING! Not Advised!]
 */
 void PC::findBestManip(){
 	Qinit = Q_measured; //copy current measured joint values (q_0)
@@ -400,6 +451,37 @@ void PC::findBestManip(){
 	// for (int axis=0; axis<6; axis++) 
 	// 	updateConstraints[axis] = 1; //send signal at the thread pool to update measurements
 	updateConstraints.ones();
+
+	//calculate index at current configuration
+	if (gradient_type == _cartesian) {
+		//Select performance index
+		switch (PC_index){
+			case _manipulability:	//Manipulability index
+				calcCurrentManipulability(); 
+				ST_current = w;
+				break;
+			case _MSV:			//Minimum singulr value
+				calcCurrentSVD(); 
+				ST_current = msv;
+				break;
+			case _iCN:			//Condition number
+				calcCurrentSVD(); 
+				ST_current = icn;
+				break;
+		}
+
+		if (verbose) {
+			if (separate) std::cout << "Current performance (Lin,Rot): " << ST_current(0) << " | " << ST_current(1) << std::endl;
+			else std::cout << "Current performance (combined): " << ST_current(0) << std::endl;
+		}
+	}
+	else if (gradient_type == _joints) {
+		//Select Jacobian to optimize
+		ST_current(0) = calcCurrentIndex( getJacobianToOptimize(J) ); 
+		if (verbose) {
+			std::cout << "Current performance: " << ST_current(0) << std::endl;
+		}
+	}
 
 	//join (all of them must become 0 to continue) [becomes non-blocking otherwise]
 	if (PC_Calc_Method == _parallel) {
@@ -437,6 +519,20 @@ void PC::Thread(int axis, PerformanceIndex option){
 				dp.at(axis)=dx; //virtual Cart. velocity for local search
 				
 				Qv = arma::pinv(J)*dp + Qinit; //new virtual joint values
+
+				Jc = get_Jsym_spatial(Qv); //calculate J for those new virtual joint values 
+			
+				switch (option){
+					case _manipulability:			//Manipulability metric
+						grad_w = calcManipulability(Jc, T_R)-w[T_R];
+						break;
+					case _MSV:			//Minimum singulr value metric
+						grad_w = calcMSV(Jc, T_R) - msv[T_R];
+						break;
+					case _iCN:			//Minimum singulr value metric
+						grad_w = calciCN(Jc, T_R) - icn[T_R];
+						break;
+				}
 			}
 			else if (gradient_type == _joints) {
 				// arma::vec dq(n);
@@ -444,21 +540,13 @@ void PC::Thread(int axis, PerformanceIndex option){
 				dq.at(axis)=dx; //infinitesimal joint movement
 				
 				Qv = dq + Qinit; //new virtual joint values
+
+				Jc = get_Jsym_spatial(Qv); //calculate J for those new virtual joint values 
+
+				grad_w = calcCurrentIndex( getJacobianToOptimize(Jc) ) - ST_current(0);
 			}
 			
-			Jc = get_Jsym_spatial(Qv); //calculate J for those new virtual joint values 
 			
-			switch (option){
-				case _manipulability:			//Manipulability metric
-					grad_w = calcManipulability(Jc, T_R)-w[T_R];
-					break;
-				case _MSV:			//Minimum singulr value metric
-					grad_w = calcMSV(Jc, T_R) - msv[T_R];
-					break;
-				case _iCN:			//Minimum singulr value metric
-					grad_w = calciCN(Jc, T_R) - icn[T_R];
-					break;
-			}
 			
 			Aw.at(axis) = grad_w / dx; 
 

@@ -33,8 +33,7 @@ enum PerformanceIndex {
 /// Performance Constraints Calculation method
 enum PCcalculation {
 	_serial,
-	_parallel,
-	_parallel_nonblock
+	_parallel
 };
 
 enum GradientWRT {
@@ -42,12 +41,20 @@ enum GradientWRT {
 	_joints
 };
 
+enum JacobianToOptimize {
+	_J,			//full jacobian
+	_JT,		//position part only
+	_JT_aug,	//augmented position part
+	_JR,		//orientation part
+	_JR_aug		//augmented orientaiton part
+};
+
 class PC
 {
 public:
 	PC(double _crit_t, double _thres_t, double _crit_r, double _thres_r, double _lambda_t, double _lambda_r, PerformanceIndex _index, PCcalculation _method);
 	PC(double _crit_t, double _thres_t, double _lambda_t, PerformanceIndex _index, PCcalculation _method);
-	PC(PerformanceIndex _index, PCcalculation _method, GradientWRT _gradient_type, bool _separate);
+	PC(PerformanceIndex _index, PCcalculation _method, GradientWRT _gradient_type, bool _separate, JacobianToOptimize _optimJacobian = _J);
 	~PC();
 	void init();
 	void updatePC(const arma::vec q);
@@ -74,6 +81,9 @@ public:
 	double getMSV(int T_R){ return msv[T_R]; }; // Return the current augmented translational or rotational Minimum Singular Value
 	double getiCondNum(int T_R){ return icn[T_R]; }; // Return the current augmented translational or rotational inverse condition number
 	
+	arma::mat getJacobianToOptimize(arma::mat Jin);
+	double calcCurrentIndex(arma::mat Jin);
+
 	arma::mat get_Jsym_body(const arma::vec jntvalues); //Calculate the body Jacobian of the tool frame
 	arma::mat get_Jsym_spatial(const arma::vec jntvalues); //Calculate spatial Jacobian of the base frame
 	double getJointLimitScaling(double clearance, double range);
@@ -101,6 +111,7 @@ private:
 	PerformanceIndex PC_index; //performance constraints option
 	PCcalculation PC_Calc_Method; //serial or parallel calculation
 	GradientWRT gradient_type; //with respect to cartesian frame or joints
+	JacobianToOptimize optimJacobian;
 
 	arma::mat::fixed<6,7> J; //This is the Jacobian matrix at the current configuration of the robot. It is calculated internally based on the current q.
 	arma::mat::fixed<6,7> J_sym; //The Jacobian matrix should be available in symbolic function. That of KUKA LWR 4+ is provided here as an example.

@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
 	* 5: lambda for translation or combined
 	* 6: lambda for rotation  [OPTIONAL: Leave empty for combined indices]
 	* 7: Performance indices [1, 2, 3]  1: Manipulability Index, 2: Minimum Singular Value, 3: Inverse Condition Number
-	* 8: Calculation methods: _serial, _parallel, _parallel_nonblock (not advised)
+	* 8: Calculation methods: _serial, _parallel
 	* 9: Gradient with respect to: [_cartesian (default), _joints] Selectable for only gradient calculation
 	*/
 
@@ -48,9 +48,9 @@ int main(int argc, char** argv) {
 	// PC pConstraints(	0.01,	0.3,	1.0,	_manipulability,	_serial); //Using MSV (better for human robot interaction)
 
 	// Only calculate gradient
-	PC pConstraints(_manipulability,  _serial, _joints, false) ;
+	PC pConstraints(_manipulability,  _serial, _joints, 0, _JR_aug) ;
 
-	// pConstraints.setVerbose(1); //Set debug info. Comment or set to 0 to disable
+	pConstraints.setVerbose(1); //Set debug info. Comment or set to 0 to disable
 
 	arma::vec q; q << 0. << -M_PI/4. << 0. << M_PI/2. << 0. << -M_PI/4. << 0.0; //An example initial configuration 
 	
