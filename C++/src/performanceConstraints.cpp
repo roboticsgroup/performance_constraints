@@ -101,22 +101,16 @@ void PC::init() {
 	if (gradient_type == _cartesian) {
 		Aw = arma::ones<arma::vec>(6);
 		updateConstraints =  arma::zeros<arma::vec>(6);
+
+		std::cout << "Cartesian PC have been initialized using method: "; 
 	}
 	else { 
 		Aw = arma::ones<arma::vec>(n);
 		updateConstraints =  arma::zeros<arma::vec>(n);
+
+		std::cout << "Joint optimization has been initialized using method: "; 
 	}
 
-	dq = arma::ones<arma::vec>(n);
-	Favoid.fill(0.0);
-
-	dx = 1e-5; //infinitesimal movement
-
-	if (PC_Calc_Method != _serial) {
-		threadpool_create(PC_index); //start thread pool
-	}
-
-	std::cout << "PC has been initialized using method: "; 
 	switch (PC_index){
 		case _manipulability:			//Manipulability index
 			std::cout << "'Manipulability Index' ";
@@ -128,6 +122,37 @@ void PC::init() {
 			std::cout << "'Inverse Condition Number' ";
 			break;
 	}
+
+	if (gradient_type == _joints) {
+		std::cout << "of ";
+		switch (optimJacobian){
+			case _J:
+				std::cout << "full J.";
+				break;
+			case _JT:
+				std::cout << "position part of J.";
+				break;
+			case _JT_aug:
+				std::cout << "augmented position of J.";
+				break;
+			case _JR:
+				std::cout << "rotation part of J.";
+				break;
+			case _JR_aug:
+				std::cout << "augemented rotation of J.";
+				break;
+		}
+	}
+
+	dq = arma::ones<arma::vec>(n);
+	Favoid.fill(0.0);
+
+	dx = 1e-5; //infinitesimal movement
+
+	if (PC_Calc_Method != _serial) {
+		threadpool_create(PC_index); //start thread pool
+	}
+
 	std::cout << std::endl;
 
 	qlim << 2.9671 << 2.0944 << 2.9671 << 2.0944 << 2.9671 << 2.0944 << 2.9671; //upper joint limits of KUKA LWR
