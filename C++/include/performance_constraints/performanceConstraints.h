@@ -52,7 +52,7 @@ enum JacobianToOptimize {
 class PC
 {
 public:
-	PC(double _crit_t, double _thres_t, double _crit_r, double _thres_r, double _lambda_t, double _lambda_r, PerformanceIndex _index, PCcalculation _method);
+	PC(double _crit_t, double _thres_t, double _crit_r, double _thres_r, double _lambda_t, double _lambda_r, PerformanceIndex _index, PCcalculation _method, bool _useAugmented = true);
 	PC(double _crit_t, double _thres_t, double _lambda_t, PerformanceIndex _index, PCcalculation _method);
 	PC(PerformanceIndex _index, PCcalculation _method, GradientWRT _gradient_type, bool _separate, JacobianToOptimize _optimJacobian = _J);
 	~PC();
@@ -123,7 +123,7 @@ private:
 	
 	int verbose;
 	arma::wall_clock timer;
-	bool separate;
+	bool separate, useAugmented;
 	double qlim_max;
 };
 

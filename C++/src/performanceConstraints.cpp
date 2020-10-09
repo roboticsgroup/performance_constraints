@@ -21,7 +21,8 @@ PC::PC(	double _crit_t, double _thres_t,
 	double _crit_r, double _thres_r, 
 	double _lambda_t, double _lambda_r, 
 	PerformanceIndex _index, 
-	PCcalculation _method) {
+	PCcalculation _method,
+	bool _useAugmented) {
 
 	crit_t 		= _crit_t;
 	thres_t 	= _thres_t;
@@ -31,6 +32,7 @@ PC::PC(	double _crit_t, double _thres_t,
 	lambda_r 	= _lambda_r;
 	PC_index 	= _index;
 	PC_Calc_Method	= _method;
+	useAugmented = _useAugmented;
 
 	gradient_type = _cartesian;
 	separate 	= true; //different thresholds have been provided for each
@@ -176,8 +178,14 @@ PC::~PC() {
 /// Calculate the current augmented translational and rotational manipulability from J (Yoshikawa, 1990)
 void PC::calcCurrentManipulability() {
 	if (separate) {
-		w(0) = sqrt(arma::det( J.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(3,5))*J.rows(3,5)) * J.rows(0,2).t() )); //translational strong sense
-		w(1) = sqrt(arma::det( J.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(0,2))*J.rows(0,2)) * J.rows(3,5).t() )); //rotational strong sense	
+		if (useAugmented) { //calculate in the strong sense
+			w(0) = sqrt(arma::det( J.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(3,5))*J.rows(3,5)) * J.rows(0,2).t() )); //translational strong sense
+			w(1) = sqrt(arma::det( J.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(0,2))*J.rows(0,2)) * J.rows(3,5).t() )); //rotational strong sense	
+		}
+		else { //calculate in the weak sense
+			w(0) = sqrt(arma::det( J.rows(0,2) * J.rows(0,2).t()));
+			w(1) = sqrt(arma::det( J.rows(3,5) * J.rows(3,5).t()));
+		}
 	}
 	else {
 		w(0) = sqrt(arma::det( J * J.t() )); 
@@ -191,12 +199,12 @@ double PC::calcManipulability(const arma::mat J_, const int T_R)
 {
 	if (separate) {
 		if (T_R==0) { //translational
-			// return sqrt(arma::det(J_.rows(0,2)*J_.rows(0,2).t())); //weak sense
-			return sqrt(arma::det( J_.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(3,5))*J_.rows(3,5)) * J_.rows(0,2).t() )); //strong sense
+			if (useAugmented) return sqrt(arma::det( J_.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(3,5))*J_.rows(3,5)) * J_.rows(0,2).t() )); //strong sense
+			else return sqrt(arma::det( J_.rows(0,2) * J_.rows(0,2).t() )); //weak sense
 		}
 		else { //rotational
-			// return sqrt(arma::det(J_.rows(3,5)*J_.rows(3,5).t())); //weak sense
-			return sqrt(arma::det( J_.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(0,2))*J_.rows(0,2)) * J_.rows(3,5).t() )); //strong sense
+			if (useAugmented) return sqrt(arma::det( J_.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(0,2))*J_.rows(0,2)) * J_.rows(3,5).t() )); //strong sense
+			else return sqrt(arma::det( J_.rows(3,5) * J_.rows(3,5).t() ));
 		}
 	}
 	else {
@@ -208,12 +216,16 @@ double PC::calcManipulability(const arma::mat J_, const int T_R)
 void PC::calcCurrentSVD(){
 	if (separate) {
 		//translational
-		arma::vec sigmaT = arma::svd( J.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(3,5))*J.rows(3,5)) ); 
+		arma::vec sigmaT;
+		if (useAugmented) sigmaT = arma::svd( J.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(3,5))*J.rows(3,5)) ); 
+		else sigmaT = arma::svd( J.rows(0,2) ); 
 		msv(0) = arma::min(sigmaT);
 		icn(0) = arma::min(sigmaT)/arma::max(sigmaT);
 
 		//rotational
-		arma::vec sigmaR = arma::svd( J.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(0,2))*J.rows(0,2)) ); 
+		arma::vec sigmaR;
+		if (useAugmented) sigmaR = arma::svd( J.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J.rows(0,2))*J.rows(0,2)) ); 
+		else sigmaR = arma::svd( J.rows(3,5) ); 
 		msv(1) = arma::min(sigmaR);
 		icn(1) = arma::min(sigmaR)/arma::max(sigmaR);
 	}
@@ -231,10 +243,12 @@ double PC::calcMSV(const arma::mat J_, const int T_R) {
 	arma::vec sigma;
 	if (separate) {
 		if (T_R==0) { //translational
-			sigma = arma::svd( J_.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(3,5))*J_.rows(3,5)) ); 
+			if (useAugmented) sigma = arma::svd( J_.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(3,5))*J_.rows(3,5)) ); 
+			else sigma = arma::svd( J_.rows(0,2) ); 
 		}
 		else { //rotational
-			sigma = arma::svd( J_.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(0,2))*J_.rows(0,2)) ); 
+			if (useAugmented) sigma = arma::svd( J_.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(0,2))*J_.rows(0,2)) ); 
+			else sigma = arma::svd( J_.rows(3,5) ); 
 		}
 	}
 	else {
@@ -248,10 +262,12 @@ double PC::calciCN(const arma::mat J_, const int T_R) {
 	arma::vec sigma;
 	if (separate) {
 		if (T_R==0) { //translational
-			sigma = arma::svd( J_.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(3,5))*J_.rows(3,5)) ); 
+			if (useAugmented) sigma = arma::svd( J_.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(3,5))*J_.rows(3,5)) ); 
+			else sigma = arma::svd( J_.rows(0,2) ); 
 		}
 		else { //rotational
-			sigma = arma::svd( J_.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(0,2))*J_.rows(0,2)) ); 
+			if (useAugmented) sigma = arma::svd( J_.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(J_.rows(0,2))*J_.rows(0,2)) ); 
+			else sigma = arma::svd( J_.rows(3,5) ); 
 		}
 	}
 	else {
@@ -270,13 +286,13 @@ arma::mat PC::getJacobianToOptimize(arma::mat Jin) {
 			return Jin.rows(0,2);
 		
 		case _JT_aug:
-			return Jin.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(Jin.rows(3,5))*Jin.rows(3,5));
+			return Jin.rows(0,2) * (arma::eye<arma::mat>(n,n)-arma::pinv(Jin.rows(3,5)) * Jin.rows(3,5));
 		
 		case _JR:
 			return Jin.rows(3,5);
 		
 		case _JR_aug:
-			return Jin.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(Jin.rows(0,2))*Jin.rows(0,2));
+			return Jin.rows(3,5) * (arma::eye<arma::mat>(n,n)-arma::pinv(Jin.rows(0,2)) * Jin.rows(0,2));
 		
 	}
 }
