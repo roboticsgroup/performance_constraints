@@ -148,6 +148,7 @@ void PC::init() {
 
 	dq = arma::ones<arma::vec>(n);
 	Favoid.fill(0.0);
+	ST_current.fill(1.0);
 
 	dx = 1e-5; //infinitesimal movement
 
