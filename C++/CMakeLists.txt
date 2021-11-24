@@ -23,7 +23,7 @@ include_directories(INCLUDE_DIRS
 
 add_library(performance-constraints
   src/performanceConstraints.cpp
-  src/Jacobian.cpp)
+  src/Jacobian_ur5e.cpp)
 
 add_dependencies(performance-constraints
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
@@ -35,7 +35,7 @@ target_link_libraries(performance-constraints
 add_executable(demo
   src/demo.cpp
   src/performanceConstraints.cpp
-  src/Jacobian.cpp)
+  src/Jacobian_ur5e.cpp)
 
 add_dependencies(demo
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
