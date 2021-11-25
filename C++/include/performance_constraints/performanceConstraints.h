@@ -113,8 +113,8 @@ private:
 	GradientWRT gradient_type; //with respect to cartesian frame or joints
 	JacobianToOptimize optimJacobian;
 
-	arma::mat::fixed<6,7> J; //This is the Jacobian matrix at the current configuration of the robot. It is calculated internally based on the current q.
-	arma::mat::fixed<6,7> J_sym; //The Jacobian matrix should be available in symbolic function. That of KUKA LWR 4+ is provided here as an example.
+	arma::mat J; //This is the Jacobian matrix at the current configuration of the robot. It is calculated internally based on the current q.
+	arma::mat J_sym; //The Jacobian matrix should be available in symbolic function. A few are provided here as examples.
 	
 	// 2 part indices [translational, rotational]
 	arma::vec::fixed<2> w; //manipulability index of current position, calculated in every loop inside msrJacobian()

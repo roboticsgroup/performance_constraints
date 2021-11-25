@@ -95,7 +95,7 @@ void PC::init() {
 		PC_index = _MSV;
 	}
 
-	n=7; //by default use all 7 joints for differential inverse kinematics etc.
+	n=6; //by default use all 7 joints for differential inverse kinematics etc.
 	
 	K_w = 0.0;
 	K_rot = 0.0;
