@@ -110,7 +110,7 @@ void PC::init() {
 		Aw = arma::ones<arma::vec>(n);
 		updateConstraints =  arma::zeros<arma::vec>(n);
 
-		std::cout << "Joint optimization has been initialized using method: "; 
+		std::cout << "Joint optimization (for " << n << " joints) has been initialized using method: "; 
 	}
 
 	switch (PC_index){
