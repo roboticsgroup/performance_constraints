@@ -1,5 +1,4 @@
 /*This is a demo of Performance Constraints for a robotic manipulator.
-The KUKA LWR 4+ is provided as an example here.
 
 A description and the overall algorithm of the method is in:
 - Dimeas, Fotios, Vassilis C. Moulianitis, and Nikos Aspragathos. 
@@ -7,7 +6,7 @@ A description and the overall algorithm of the method is in:
 Robotics and Computer-Integrated Manufacturing (2017).
 
 Author: Fotis Dimeas
-Copyright 2020 Fotios Dimeas
+Copyright 2022 Fotios Dimeas
  */
 
 #include <performance_constraints/performanceConstraints.h>
@@ -95,7 +94,11 @@ void PC::init() {
 		PC_index = _MSV;
 	}
 
-	n=6; //by default use all 7 joints for differential inverse kinematics etc.
+	model.reset(new arl::robot::ROSModel());
+	sim_robot.reset(new arl::robot::RobotSim(model, 1e-3));
+	sim_robot->setMode(arl::robot::Mode::POSITION_CONTROL);
+
+	n = model->getNrOfJoints(); 
 	
 	K_w = 0.0;
 	K_rot = 0.0;
@@ -157,8 +160,9 @@ void PC::init() {
 	}
 
 	std::cout << std::endl;
-
-	qlim << 2.9671 << 2.0944 << 2.9671 << 2.0944 << 2.9671 << 2.0944 << 2.9671; //upper joint limits of KUKA LWR
+ 
+ 	//upper joint limits of KUKA LWR
+	qlim << 2.9671 << 2.0944 << 2.9671 << 2.0944 << 2.9671 << 2.0944 << 2.9671;
 
 	verbose = 0; //default
 }
@@ -319,9 +323,13 @@ double PC::calcCurrentIndex(arma::mat Jin) {
 * Call this function from outside, simply by providing the current q.
 */
 void PC::updatePC(const arma::vec q){
+	chechInput(q);
+
 	updateCurrentConfiguration(q); //measure the robot's configuration and put it here
 	
-	J = get_Jsym_spatial(q); //calculate J from current q
+	sim_robot->setJointPosition(q);
+	J = sim_robot->getJacobian().toArma();
+	// J = get_Jsym_spatial(q); //calculate J from current q
 
 	updatePC();
 
@@ -329,7 +337,6 @@ void PC::updatePC(const arma::vec q){
 
 /*! \brief Calculate the Performance Constraints
 *
-* Call this function from outside, but fist need to updateCurrentConfiguration(q), get_Jsym_spatial(q, J) and updateCurrentJacobian(J)
 * If the current performance value drops below the threshold, the grad is calculated.
 */
 void PC::updatePC()
@@ -367,15 +374,18 @@ void PC::updatePC()
 
 /// Wrapper of calculateGradient() that gets the current joint positions as an argument.
 void PC::calculateGradient(const arma::vec q){
+	chechInput(q);
+
 	updateCurrentConfiguration(q); //measure the robot's configuration and put it here
 	
-	J = get_Jsym_spatial(q); //calculate J from current q
+	sim_robot->setJointPosition(q);
+	J = sim_robot->getJacobian().toArma();
+	// J = get_Jsym_spatial(q); //calculate J from current q
 
 	calculateGradient();
 
 }
 
-///  To call this function from outside, make sure you call first: updateCurrentConfiguration(q), get_Jsym_spatial(q, J) and updateCurrentJacobian(J)
 void PC::calculateGradient() {
 	//Select calculation method (Serial or parallel)
 	if (PC_Calc_Method == _serial)
@@ -454,8 +464,11 @@ void PC::findBestManip(PerformanceIndex option){
 			
 			Qv = arma::pinv(J)*dp + Qinit; //new virtual joint values
 
-			J_sym = get_Jsym_spatial(Qv); //calculate J for those new virtual joint values (This overwrites the J_sym global variable)
-		
+			//calculate J for those new virtual joint values (This overwrites the J_sym global variable)
+			sim_robot->setJointPosition(Qv);
+			J_sym = sim_robot->getJacobian().toArma();
+			// J_sym = get_Jsym_spatial(Qv); 
+
 			switch (option){
 				case _manipulability:			//Manipulability metric
 					grad_w = calcManipulability(J_sym, T_R)-w[T_R];
@@ -474,8 +487,11 @@ void PC::findBestManip(PerformanceIndex option){
 			
 			Qv = dq + Qinit; //new virtual joint values
 
-			J_sym = get_Jsym_spatial(Qv); //calculate J for those new virtual joint values (This overwrites the J_sym global variable)
-
+			//calculate J for those new virtual joint values (This overwrites the J_sym global variable)
+			sim_robot->setJointPosition(Qv);
+			J_sym = sim_robot->getJacobian().toArma();
+			// J_sym = get_Jsym_spatial(Qv); 
+			
 			grad_w = calcCurrentIndex( getJacobianToOptimize(J_sym) ) - ST_current(0);
 		}
 
@@ -562,7 +578,9 @@ void PC::Thread(int axis, PerformanceIndex option){
 				
 				Qv = arma::pinv(J)*dp + Qinit; //new virtual joint values
 
-				Jc = get_Jsym_spatial(Qv); //calculate J for those new virtual joint values 
+				sim_robot->setJointPosition(Qv);
+				Jc = sim_robot->getJacobian().toArma();
+				// Jc = get_Jsym_spatial(Qv); //calculate J for those new virtual joint values 
 			
 				switch (option){
 					case _manipulability:			//Manipulability metric
@@ -583,7 +601,9 @@ void PC::Thread(int axis, PerformanceIndex option){
 				
 				Qv = dq + Qinit; //new virtual joint values
 
-				Jc = get_Jsym_spatial(Qv); //calculate J for those new virtual joint values 
+				sim_robot->setJointPosition(Qv);
+				Jc = sim_robot->getJacobian().toArma();
+				// Jc = get_Jsym_spatial(Qv); //calculate J for those new virtual joint values 
 
 				grad_w = calcCurrentIndex( getJacobianToOptimize(Jc) ) - ST_current(0);
 			}
@@ -625,6 +645,7 @@ void PC::threadpool_join() {
 }
 
 arma::vec PC::getGradientScaled(double clearance, double range) {
+	ROS_WARN_THROTTLE(1,"Careful! getGradientScaled() uses hardcoded joint limit values.");
 	return getJointLimitScaling(clearance, range) * Aw;
 }
 
@@ -654,13 +675,6 @@ void PC::updateCurrentConfiguration(const arma::vec q){
 	Q_measured = q;
 }
 
-/*! \brief Update current robot Jacobian
-*
-*/
-void PC::updateCurrentJacobian(const arma::mat J_current){
-	J = J_current;
-}
-
 double PC::getPerformanceIndex(int which){
 	return ST_current(which);
 }
@@ -677,5 +691,11 @@ int PC::checkForSingularity() {
 			return 1; //means that you should be carefull
 		else 
 			return 0;
+	}
+}
+
+void PC::chechInput(arma::vec q) { 
+	if (q.n_elem != n) {
+		ROS_ERROR("Wrong joint number input. Expected: %d, got %d", (int)n, (int)q.n_elem);
 	}
 }

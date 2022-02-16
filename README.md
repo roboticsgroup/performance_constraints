@@ -18,19 +18,25 @@ alt="IMAGE ALT TEXT HERE" width="240" height="180" border="10" /></a>
 
 This repository includes the Matlab code that was used in the ICRA 2016 paper and the extended method in C++ that is presented in the RCIM journal. 
 
-The C++ implementation includes performance constraints in both translational and rotational axes. It also includes 3 ways of calculating them:
-* Serial: Each direction is calculated after the other. It might take a while
-* Parallel: Each direction is calculated in its own thread worker. Function returns when all calculations are over. This usually works in less than 1ms. Better have a multi-thread CPU.
-* Parallel non-blocking: Same as above but the function returns immediately. This can work in slow computers. WARNING! Be very careful when you use it, synchronization issues of the constraint forces may arise.
+The C++ implementation includes performance constraints in both translational and rotational axes. It also includes 2 ways of calculating them:
+* Serial: Each direction is calculated after the other. 
+* Parallel: Each direction is calculated in its own thread worker. Function returns when all calculations are over. 
+
+For 6 and 7 DOF robots, execution time has been measured around 0.2ms
+
 
 # Usage:
-## C++
-> g++ demo.cpp performanceConstraints.cpp Jacobian.cpp  -o demo -larmadillo -pthread -std=c++11
+## ROS & C++
+Load robot description 
+> roslaunch autharl_description display.launch config:=ur5e
 
-The Jacobian matrix that is provided in symbolic form is for the KUKA LWR 4+
+Run example
+> rosrun performance_constraints demo
+
+The Jacobian matrix is calculated from the URDF using a simulated robot
 
 ### Requirements:
-- Armadillo library
+- [autharl_core](https://github.com/auth-arl/autharl_core)
 
 ## Matlab
 1. Set the desired parameters for the robot and the performance
@@ -42,11 +48,10 @@ constraints
 - Robotics Toolbox for Matlab (http://www.petercorke.com/Robotics_Toolbox.html)
 
 ### Notes: 
-- The simulation does not consider the joint limits so the robot
-might behave weird
+- The simulation does not consider the joint limits so the robot might behave weird
 - This code has been tested with Robotics Toolbox 9.10 and Matlab R2014a
 
 
-Authors: Fotios Dimeas, Charalambos Papakonstantinou
+Authors: Fotios Dimeas
 
-Copyright 2015-2017 Fotios Dimeas
+Copyright 2022 Fotios Dimeas

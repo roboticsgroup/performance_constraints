@@ -1,5 +1,4 @@
 /*This is a demo of Performance Constraints for a robotic manipulator.
-The KUKA LWR 4+ is provided as an example here.
 
 A description and the overall algorithm of the method is in:
 - Dimeas, Fotios, Vassilis C. Moulianitis, and Nikos Aspragathos. 
@@ -7,13 +6,12 @@ A description and the overall algorithm of the method is in:
 Robotics and Computer-Integrated Manufacturing (2017).
 
 Author: Fotis Dimeas
-Copyright 2020 Fotios Dimeas
+Copyright 2022 Fotios Dimeas
  */
 
 #include <cstdlib>
 #include <iostream>
 
-// #define ARMA_DONT_USE_CXX11 //remove warning for incomplete C++11 support
 #include <armadillo> //Linear Algebra Library
 #include <performance_constraints/performanceConstraints.h>
 #include <ros/ros.h>
@@ -41,51 +39,41 @@ int main(int argc, char** argv) {
 	*/
 
 	/// Separate indices for translation or rotation
-	// PC pConstraints(	0.011,	0.03,	0.15,	0.5,	1.0,	1.0,	_manipulability,	_serial); //Using manipulability index
+	PC pConstraints(	0.011,	0.03,	0.15,	0.5,	1.0,	1.0,	_manipulability,	_serial); //Using manipulability index
 	// PC pConstraints(	0.03,	0.14,	0.1,	0.5,	1.0,	1.0,	_MSV,	_parallel); //Using MSV (better for human robot interaction)
 	
 	/// Combined indices
-	// PC pConstraints(	0.01,	0.3,	1.0,	_manipulability,	_serial); //Using MSV (better for human robot interaction)
+	// PC pConstraints(	0.01,	0.3,	1.0,	_MSV,	_serial); //Using MSV (better for human robot interaction)
 
 	// Only calculate gradient
-	PC pConstraints(_manipulability,  _serial, _joints, 0, _JR_aug) ;
+	// PC pConstraints(_manipulability,  _serial, _cartesian, 0, _JR_aug) ;
 
-	pConstraints.setVerbose(1); //Set debug info. Comment or set to 0 to disable
+	pConstraints.setVerbose(0); //Set debug info. Comment or set to 0 to disable
 
-	arma::vec q; q << 0. << -M_PI/4. << 0. << M_PI/2. << 0. << -M_PI/4. << 0.0; //An example initial configuration 
+	arma::vec q; 
+
+	//for n=6 joints
+	q << 0. << -M_PI/4.  << M_PI/2. << 0. << -M_PI/4. << 0.0; //An example initial configuration 
+	//for n=7 joints
+	// q << 0. << -M_PI/4.  << 0 << M_PI/2. << 0. << -M_PI/4. << 0.0; //An example initial configuration 
 	
-	arma::mat J(6,7);  
 	cout.precision(10); cout.setf(ios::fixed);
 	
 	cout << "Entering control loop...\n";
 	arma::wall_clock timer; timer.tic();
 	int i;
-	for (i=0; i<10; i++) //this is supposed to be a simulation control loop
+	for (i=0; i<100; i++) //this is supposed to be a simulation control loop
 	{
-		// One way to calculate Perf. Constraints
-		// pConstraints.updateCurrentConfiguration(q); //measure the robot's configuration and put it here
-		// J = pConstraints.get_Jsym_spatial(q); //calculate J from current q
-		// pConstraints.updateCurrentJacobian(J); 
-		// pConstraints.updatePC(); //Performance constraints are calculated in here
-		
-		// Another way to calculate PC by putting the q as an argument
-		// pConstraints.updatePC(q); //Performance constraints are calculated in here
-
-		// arma::vec F = pConstraints.getSingularityTreatmentForce(); //
+		// Calculate PC in joint positions "q" [rad]
+		pConstraints.updatePC(q); //Performance constraints are calculated in here
+		arma::vec F = pConstraints.getSingularityTreatmentForce(); //
 
 		// Calculate only the gradient without (no treatment force is calculated)
-		// pConstraints.updateCurrentConfiguration(q); //measure the robot's configuration and put it here
-		// J = pConstraints.get_Jsym_spatial(q); //calculate J from current q
-		// pConstraints.updateCurrentJacobian(J); 
-		// pConstraints.calculateGradient();
-		
-		pConstraints.calculateGradient(q);
-
-		// 
+		// pConstraints.calculateGradient(q);
 		// arma::vec A = pConstraints.getGradient();
 		// A.t().print();
-		arma::vec A = pConstraints.getGradientScaled(10.0 * M_PI / 180.0, 5.0 * M_PI / 180.0);
-		A.t().print();
+		// arma::vec A = pConstraints.getGradientScaled(10.0 * M_PI / 180.0, 5.0 * M_PI / 180.0);
+		// F.t().print();
 
 		if (pConstraints.checkForSingularity()) { //check for singularity since no handling of the robot's motion is done here
 			cout << "Robot became singular. Stopping simulation after loops: " << i << endl; 
@@ -100,7 +88,7 @@ int main(int argc, char** argv) {
 		//Put your controller here (e.g impedance or admittance)
 		//...
 
-		cout << endl << endl;
+		// cout << endl << endl;
 	} 
 	double time = timer.toc();
 	cout << "Simulation completed in " <<  time<< "sec."<< endl;
