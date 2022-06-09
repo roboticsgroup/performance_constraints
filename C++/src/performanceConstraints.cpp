@@ -645,7 +645,8 @@ void PC::threadpool_join() {
 }
 
 arma::vec PC::getGradientScaled(double clearance, double range) {
-	ROS_WARN_THROTTLE(1,"Careful! getGradientScaled() uses hardcoded joint limit values.");
+	auto steady_clock = rclcpp::Clock();
+	RCLCPP_WARN_THROTTLE(rclcpp::get_logger("rclcpp"), steady_clock, 1000,"Careful! getGradientScaled() uses hardcoded joint limit values.");
 	return getJointLimitScaling(clearance, range) * Aw;
 }
 
@@ -696,6 +697,8 @@ int PC::checkForSingularity() {
 
 void PC::chechInput(arma::vec q) { 
 	if (q.n_elem != n) {
-		ROS_ERROR("Wrong joint number input. Expected: %d, got %d", (int)n, (int)q.n_elem);
+		auto steady_clock = rclcpp::Clock();
+		RCLCPP_WARN_THROTTLE(rclcpp::get_logger("rclcpp"), steady_clock, 1000,
+		"Wrong joint number input. Expected: %d, got %d", (int)n, (int)q.n_elem);
 	}
 }

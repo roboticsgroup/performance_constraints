@@ -17,8 +17,9 @@ Copyright 2022 Fotios Dimeas
 #include <thread>
 #include <cstdlib>
 
-#include <autharl_core/robot/robot_sim.h>
-#include <autharl_core/robot/ros_model.h>
+#include <arl_core2/robot/robot_sim.hpp>
+#include <arl_core2/robot/ros_model.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 #ifndef M_PI 
 #define M_PI 3.14159265359
@@ -65,7 +66,8 @@ public:
 	arma::vec getGradientScaled(double clearance, double range);
 	void setVerbose(int lvl) { verbose = lvl;}; //0 to disable
 	int checkForSingularity();
-
+	double getPerformanceIndex(int which=0);
+	
 private:	
 	void init();
 	void updatePC(); 
@@ -94,7 +96,6 @@ private:
 	double getJointLimitScaling(double clearance, double range);
 
 	void updateCurrentConfiguration(const arma::vec q); /** Update current robot configuration*/
-	double getPerformanceIndex(int which=0);
 	void chechInput(arma::vec q);
 
 	arma::vec Aw; //index gradient
