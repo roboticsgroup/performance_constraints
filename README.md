@@ -28,15 +28,15 @@ For 6 and 7 DOF robots, execution time has been measured around 0.2ms
 # Usage:
 ## ROS & C++
 Load robot description 
-> roslaunch autharl_description display.launch config:=ur5e
+> ros2 launch ur_description display_platform_right.launch.py 
 
 Run example
-> rosrun performance_constraints demo
+> ros2 run performance_constraints demo
 
 The Jacobian matrix is calculated from the URDF using a simulated robot
 
 ### Requirements:
-- [autharl_core](https://github.com/auth-arl/autharl_core)
+- [arl_core2](https://gitlab.com/proghrc/arl_core2_ws)
 
 ## Matlab
 1. Set the desired parameters for the robot and the performance
