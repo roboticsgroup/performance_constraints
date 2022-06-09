@@ -9,7 +9,7 @@ Author: Fotis Dimeas
 Copyright 2022 Fotios Dimeas
  */
 
-#include <performance_constraints/performanceConstraints.h>
+#include <performanceConstraints.h>
 
 /*! \brief Initialize the Performance Constraints
 *

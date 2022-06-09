@@ -13,17 +13,15 @@ Copyright 2022 Fotios Dimeas
 #include <iostream>
 
 #include <armadillo> //Linear Algebra Library
-#include <performance_constraints/performanceConstraints.h>
-#include <ros/ros.h>
-#include <ros/package.h>
+#include <performanceConstraints.h>
+#include <rclcpp/rclcpp.hpp>
 
 using namespace std;
 
 int main(int argc, char** argv) {
 	cout << "Armadillo version: " << arma::arma_version::as_string() << endl;
 
-	ros::init(argc, argv, "demo_node");
-	ros::NodeHandle nh_ = ros::NodeHandle("~");
+	rclcpp::init(argc, argv);
 
 	/*Initialize performance constraints
 	* Arguments:
