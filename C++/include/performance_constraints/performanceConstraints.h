@@ -67,6 +67,7 @@ public:
 	void setVerbose(int lvl) { verbose = lvl;}; //0 to disable
 	int checkForSingularity();
 	double getPerformanceIndex(int which=0);
+	arma::vec getEquivalentStiffness();
 	
 private:	
 	void init();

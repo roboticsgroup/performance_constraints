@@ -702,3 +702,19 @@ void PC::chechInput(arma::vec q) {
 		"Wrong joint number input. Expected: %d, got %d", (int)n, (int)q.n_elem);
 	}
 }
+
+arma::vec PC::getEquivalentStiffness() {
+	arma::vec stiff(6);
+	//Calculate equivalent stiffness due to performance constraints	
+	if (getPerformanceIndex(0) <= thres_t) //the position part of w is considered here
+		stiff.subvec(0,2) = lambda_t * arma::pow(Aw.subvec(0,2), 2) / pow(getPerformanceIndex(0) - crit_t, 2);
+	else
+		stiff.subvec(0,2).zeros();
+
+	if (getPerformanceIndex(1) <= thres_r) //the orientation part of w is considered here
+		stiff.subvec(3,5) = lambda_r * arma::pow(Aw.subvec(3,5), 2) / pow(getPerformanceIndex(1) - crit_r, 2);
+	else
+		stiff.subvec(3,5).zeros();
+	
+	return stiff;
+}
