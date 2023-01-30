@@ -162,7 +162,7 @@ void PC::init() {
 	std::cout << std::endl;
  
  	//upper joint limits of KUKA LWR
-	qlim << 2.9671 << 2.0944 << 2.9671 << 2.0944 << 2.9671 << 2.0944 << 2.9671;
+	qlim = {2.9671 , 2.0944 , 2.9671 , 2.0944 , 2.9671 , 2.0944 , 2.9671};
 
 	verbose = 0; //default
 }
@@ -284,7 +284,7 @@ double PC::calciCN(const arma::mat J_, const int T_R) {
 /// Return the Jacobian to optimize (calculate its gradient) with respect to the joint values. Not used in Cartesian gradient
 arma::mat PC::getJacobianToOptimize(arma::mat Jin) {
 	switch (optimJacobian){
-		case _J:
+		case _J: default:
 			return Jin;
 		
 		case _JT:
@@ -304,7 +304,7 @@ arma::mat PC::getJacobianToOptimize(arma::mat Jin) {
 
 double PC::calcCurrentIndex(arma::mat Jin) {
 	switch(PC_index) {
-	    case _manipulability:
+	    case _manipulability: default:
 	        return sqrt(arma::det( Jin * Jin.t() ));
 	        
 	    case _MSV:
@@ -659,7 +659,7 @@ double PC::getJointLimitScaling(double clearance, double range) {
 		if (qlim_max > range) {
 			return 0.0;
 		}
-		else if (qlim_max > 0.0) {
+		else { //if (qlim_max > 0.0) {
 			return (range - qlim_max) / range;
 		}
 	}
