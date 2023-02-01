@@ -9,7 +9,7 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   
-  <depend>arl_core2</depend> <!-- Remove if you don't have this -->
+  <depend>arl_core</depend> <!-- Remove if you don't have this -->
 
   <export>
     <build_type>ament_cmake</build_type>

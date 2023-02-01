@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
 	arma::vec q; 
 
 	//for n=6 joints
-	q << 0. << -M_PI/4.  << M_PI/2. << 0. << -M_PI/4. << 0.0; //An example initial configuration 
+	q = { 0., -M_PI/4., M_PI/2., 0., -M_PI/4., 0.0 }; //An example initial configuration 
 	//for n=7 joints
 	// q << 0. << -M_PI/4.  << 0 << M_PI/2. << 0. << -M_PI/4. << 0.0; //An example initial configuration 
 	

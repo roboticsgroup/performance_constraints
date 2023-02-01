@@ -17,8 +17,8 @@ Copyright 2022 Fotios Dimeas
 #include <thread>
 #include <cstdlib>
 
-#include <arl_core2/robot/robot_sim.hpp>
-#include <arl_core2/robot/ros_model.hpp>
+#include <arl_core/robot/robot_sim.hpp>
+#include <arl_core/robot/ros_model.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #ifndef M_PI 

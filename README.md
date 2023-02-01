@@ -36,7 +36,7 @@ Run example
 The Jacobian matrix is calculated from the URDF using a simulated robot
 
 ### Requirements:
-- [arl_core2](https://gitlab.com/proghrc/arl_core2_ws)
+- [arl_core](https://github.com/auth-arl/arl_core) (private package for ROS2)
 
 ## Matlab
 1. Set the desired parameters for the robot and the performance
@@ -54,4 +54,4 @@ constraints
 
 Authors: Fotios Dimeas
 
-Copyright 2022 Fotios Dimeas
+Copyright 2023 Fotios Dimeas
